@@ -257,7 +257,7 @@ else
         var client = HttpClientFactory.CreateClient("ITM.Dashboard.Api");
         _waferIds = await client.GetFromJsonAsync<List<string>>($"api/Filters/waferids/{eqpid}/{lotid}") ?? new();
     }
-    
+
     private async Task<IEnumerable<string>> SearchEqpids(string value, CancellationToken token)
     {
         await Task.Yield();
@@ -328,9 +328,9 @@ else
     {
         if (string.IsNullOrEmpty(_selectedEqpid))
         {
-             return new GridData<WaferFlatDataDto>() { Items = new List<WaferFlatDataDto>(), TotalItems = 0 };
+            return new GridData<WaferFlatDataDto>() { Items = new List<WaferFlatDataDto>(), TotalItems = 0 };
         }
-        
+
         var client = HttpClientFactory.CreateClient("ITM.Dashboard.Api");
         var query = new List<string> { $"page={state.Page}", $"pageSize={state.PageSize}" };
 
