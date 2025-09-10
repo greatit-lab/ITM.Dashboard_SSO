@@ -1,4 +1,4 @@
-// 파일 경로: ITM.Dashboard.Api/Controllers/FiltersController.cs
+// ITM.Dashboard.Api/Controllers/FiltersController.cs
 
 using Microsoft.AspNetCore.Mvc;
 using Npgsql;
@@ -93,7 +93,7 @@ public class FiltersController : ControllerBase
             DateTime? dbMaxDate = reader.IsDBNull(1) ? (DateTime?)null : reader.GetDateTime(1);
 
             DateTime thirtyDaysAgo = DateTime.Today.AddDays(-30);
-            
+
             DateTime? defaultStartDate = (dbMinDate.HasValue && dbMinDate.Value > thirtyDaysAgo) 
                                          ? dbMinDate.Value 
                                          : thirtyDaysAgo;
@@ -116,7 +116,7 @@ public class FiltersController : ControllerBase
         var dbInfo = DatabaseInfo.CreateDefault();
         await using var conn = new NpgsqlConnection(dbInfo.GetConnectionString());
         await conn.OpenAsync();
-        
+
         var allowedColumns = new List<string> { "cassettercp", "stagercp", "stagegroup", "film", "lotid" };
         if (!allowedColumns.Contains(columnName.ToLower()))
         {
@@ -129,7 +129,7 @@ public class FiltersController : ControllerBase
             sqlBuilder.Append("AND lotid = @lotid ");
         }
         sqlBuilder.Append($"ORDER BY {columnName};");
-        
+
         await using var cmd = new NpgsqlCommand(sqlBuilder.ToString(), conn);
         cmd.Parameters.AddWithValue("eqpid", eqpid);
         if (!string.IsNullOrEmpty(lotId))
@@ -154,7 +154,7 @@ public class FiltersController : ControllerBase
 
     [HttpGet("films/{eqpid}")]
     public Task<ActionResult<IEnumerable<string>>> GetFilms(string eqpid) => GetDistinctColumnValues("film", eqpid);
-    
+
     [HttpGet("lotids/{eqpid}")]
     public Task<ActionResult<IEnumerable<string>>> GetLotIds(string eqpid) => GetDistinctColumnValues("lotid", eqpid);
 
@@ -172,7 +172,7 @@ public class FiltersController : ControllerBase
             FROM public.plg_wf_flat 
             WHERE eqpid = @eqpid AND lotid = @lotid AND waferid IS NOT NULL 
             ORDER BY waferid;";
-            
+
         await using var cmd = new NpgsqlCommand(sql, conn);
         cmd.Parameters.AddWithValue("eqpid", eqpid);
         cmd.Parameters.AddWithValue("lotid", lotid);
