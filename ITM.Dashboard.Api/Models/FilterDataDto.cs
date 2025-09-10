@@ -1,4 +1,4 @@
-// 파일 경로: ITM.Dashboard.Api/Models/FilterDataDto.cs
+// ITM.Dashboard.Api/Models/FilterDataDto.cs
 namespace ITM.Dashboard.Api.Models
 {
     public class FilterDataDto
