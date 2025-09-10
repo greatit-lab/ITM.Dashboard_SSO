@@ -1,4 +1,4 @@
-// 파일 경로: ITM.Dashboard.Api/Models/WaferFlatDataDto.cs
+// ITM.Dashboard.Api/Models/WaferFlatDataDto.cs
 using System;
 
 namespace ITM.Dashboard.Api.Models
@@ -12,7 +12,6 @@ namespace ITM.Dashboard.Api.Models
         public double X { get; set; }
         public double Y { get; set; }
 
-        // 테이블에 표시할 4개 속성
         public string? CassetteRcp { get; set; }
         public string? StageRcp { get; set; }
         public string? StageGroup { get; set; }
