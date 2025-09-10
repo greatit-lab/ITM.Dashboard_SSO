@@ -26,7 +26,7 @@
         </MudItem>
         <MudItem xs="12" sm="4" md="2">
             <MudAutocomplete T="string" Label="Lot ID" Value="_selectedLotId" ValueChanged="OnLotIdChanged" SearchFunc="SearchLotIds"
-                             ResetValueOnEmptyText="true" CoerceText="false" CoerceValue="false"
+                             MaxItems="null" ResetValueOnEmptyText="true" CoerceText="false" CoerceValue="false"
                              Disabled="@(string.IsNullOrEmpty(_selectedEqpid))" />
         </MudItem>
         <MudItem xs="12" sm="4" md="2">
@@ -170,7 +170,7 @@ else
         {
             await LoadAdvancedFilterOptions(_selectedEqpid);
             await InitializeDateFilters(_selectedEqpid);
-            await LoadLotIds(_selectedEqpid);
+            await LoadLotIds();
             if (_dataGrid is not null)
             {
                 await _dataGrid.ReloadServerData();
@@ -201,31 +201,21 @@ else
         }
     }
 
-    private void OnStartDateChanged(DateTime? newStartDate)
+    private async Task OnStartDateChanged(DateTime? newStartDate)
     {
         _startDate = newStartDate;
-        _endDate = null;
-        if (_startDate.HasValue)
+        if (!string.IsNullOrEmpty(_selectedEqpid))
         {
-            var thirtyDaysAfter = _startDate.Value.AddDays(30);
-            var originalMaxDate = _maxSelectableDate;
-            _maxSelectableDate = (thirtyDaysAfter < originalMaxDate.GetValueOrDefault(DateTime.MaxValue))
-                               ? thirtyDaysAfter
-                               : originalMaxDate;
+            await LoadLotIds();
         }
     }
 
-    private void OnEndDateChanged(DateTime? newEndDate)
+    private async Task OnEndDateChanged(DateTime? newEndDate)
     {
         _endDate = newEndDate;
-        _startDate = null;
-        if (_endDate.HasValue)
+        if (!string.IsNullOrEmpty(_selectedEqpid))
         {
-            var thirtyDaysBefore = _endDate.Value.AddDays(-30);
-            var originalMinDate = _minSelectableDate;
-            _minSelectableDate = (thirtyDaysBefore > originalMinDate.GetValueOrDefault(DateTime.MinValue))
-                               ? thirtyDaysBefore
-                               : originalMinDate;
+            await LoadLotIds();
         }
     }
 
@@ -238,10 +228,28 @@ else
         _films = await client.GetFromJsonAsync<List<string>>($"api/Filters/films/{eqpid}") ?? new();
     }
 
-    private async Task LoadLotIds(string eqpid)
+    private async Task LoadLotIds()
     {
+        if (string.IsNullOrEmpty(_selectedEqpid)) return;
+
         var client = HttpClientFactory.CreateClient("ITM.Dashboard.Api");
-        _lotIds = await client.GetFromJsonAsync<List<string>>($"api/Filters/lotids/{eqpid}") ?? new();
+        var query = new List<string>();
+        if (_startDate.HasValue) query.Add($"startDate={_startDate.Value:yyyy-MM-dd}");
+        if (_endDate.HasValue) query.Add($"endDate={_endDate.Value:yyyy-MM-dd}");
+
+        var queryString = query.Any() ? "?" + string.Join("&", query) : "";
+        var url = $"api/Filters/lotids/{_selectedEqpid}{queryString}";
+
+        _lotIds = await client.GetFromJsonAsync<List<string>>(url) ?? new();
+
+        // 날짜 변경으로 Lot ID 목록이 바뀌었을 때, 기존 선택값이 더 이상 유효하지 않으면 초기화합니다.
+        if (!string.IsNullOrEmpty(_selectedLotId) && !_lotIds.Contains(_selectedLotId))
+        {
+            _selectedLotId = null;
+            ResetDependentFilters("lotid"); // Wafer ID 목록도 함께 초기화합니다.
+        }
+
+        StateHasChanged(); // UI를 즉시 새로고침합니다.
     }
 
     private async Task LoadWaferIds(string eqpid, string lotid)
