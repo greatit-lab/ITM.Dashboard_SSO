@@ -1,0 +1,358 @@
+@page "/"
+@using ITM.Dashboard.Web.Client.Models
+@inject IHttpClientFactory HttpClientFactory
+@using System.Text.Json
+
+<PageTitle>Wafer Flat Data</PageTitle>
+
+<MudText Typo="Typo.h4" GutterBottom="true">Wafer Flat Data</MudText>
+
+<MudPaper Class="pa-4 mb-4">
+    <MudGrid Spacing="2">
+        <MudItem xs="12" sm="4" md="2">
+            <MudSelect T="string" Label="Site" Required="true" Value="_selectedSite" ValueChanged="OnSiteChanged">
+                @foreach (var site in _sites) { <MudSelectItem T="string" Value="@site">@site</MudSelectItem> }
+            </MudSelect>
+        </MudItem>
+        <MudItem xs="12" sm="4" md="2">
+            <MudSelect T="string" Label="SDWT" Value="_selectedSdwt" ValueChanged="OnSdwtChanged" Disabled="@(string.IsNullOrEmpty(_selectedSite))">
+                @foreach (var sdwt in _sdwts) { <MudSelectItem T="string" Value="@sdwt">@sdwt</MudSelectItem> }
+            </MudSelect>
+        </MudItem>
+        <MudItem xs="12" sm="4" md="2">
+            <MudAutocomplete T="string" Label="EQP ID" Value="_selectedEqpid" ValueChanged="OnEqpidChanged" SearchFunc="SearchEqpids"
+                             ResetValueOnEmptyText="true" CoerceText="false" CoerceValue="false"
+                             Disabled="@(string.IsNullOrEmpty(_selectedSdwt))" />
+        </MudItem>
+        <MudItem xs="12" sm="4" md="2">
+            <MudAutocomplete T="string" Label="Lot ID" Value="_selectedLotId" ValueChanged="OnLotIdChanged" SearchFunc="SearchLotIds"
+                             ResetValueOnEmptyText="true" CoerceText="false" CoerceValue="false"
+                             Disabled="@(string.IsNullOrEmpty(_selectedEqpid))" />
+        </MudItem>
+        <MudItem xs="12" sm="4" md="2">
+            <MudAutocomplete T="string" Label="Wafer ID" @bind-Value="_selectedWaferId" SearchFunc="SearchWaferIds"
+                             ResetValueOnEmptyText="true" CoerceText="false" CoerceValue="false"
+                             Disabled="@(string.IsNullOrEmpty(_selectedLotId))" />
+        </MudItem>
+    </MudGrid>
+    <MudGrid Spacing="2" Class="mt-2">
+        <MudItem xs="12" sm="6" md="3">
+            <MudDatePicker Label="Start Date" Value="_startDate" DateChanged="OnStartDateChanged"
+                           MinDate="_minSelectableDate" MaxDate="_maxSelectableDate"
+                           Disabled="@(string.IsNullOrEmpty(_selectedEqpid))" />
+        </MudItem>
+        <MudItem xs="12" sm="6" md="3">
+            <MudDatePicker Label="End Date" Value="_endDate" DateChanged="OnEndDateChanged"
+                           MinDate="_minSelectableDate" MaxDate="_maxSelectableDate"
+                           Disabled="@(string.IsNullOrEmpty(_selectedEqpid))" />
+        </MudItem>
+        <MudItem xs="12" Class="d-flex justify-end gap-2 align-center">
+            <MudButton Variant="Variant.Text" OnClick="@(() => _showAdvancedFilters = !_showAdvancedFilters)">상세 조건 검색</MudButton>
+            <MudButton Variant="Variant.Filled" Color="Color.Primary" OnClick="SearchData" Disabled="@(string.IsNullOrEmpty(_selectedSite))">Search</MudButton>
+            <MudButton Variant="Variant.Outlined" OnClick="ResetFilters">Reset</MudButton>
+        </MudItem>
+    </MudGrid>
+    <MudCollapse Expanded="_showAdvancedFilters">
+        <MudGrid Spacing="2" Class="mt-2">
+            <MudItem xs="12" sm="6" md="3">
+                <MudSelect T="string" Label="Cassette RCP" @bind-Value="_selectedCassetteRcp" Disabled="@(string.IsNullOrEmpty(_selectedEqpid))" Clearable="true">
+                    @foreach (var item in _cassetteRcps) { <MudSelectItem T="string" Value="@item">@item</MudSelectItem> }
+                </MudSelect>
+            </MudItem>
+            <MudItem xs="12" sm="6" md="3">
+                <MudSelect T="string" Label="Stage RCP" @bind-Value="_selectedStageRcp" Disabled="@(string.IsNullOrEmpty(_selectedEqpid))" Clearable="true">
+                    @foreach (var item in _stageRcps) { <MudSelectItem T="string" Value="@item">@item</MudSelectItem> }
+                </MudSelect>
+            </MudItem>
+            <MudItem xs="12" sm="6" md="3">
+                <MudSelect T="string" Label="Stage Group" @bind-Value="_selectedStageGroup" Disabled="@(string.IsNullOrEmpty(_selectedEqpid))" Clearable="true">
+                    @foreach (var item in _stageGroups) { <MudSelectItem T="string" Value="@item">@item</MudSelectItem> }
+                </MudSelect>
+            </MudItem>
+            <MudItem xs="12" sm="6" md="3">
+                <MudSelect T="string" Label="Film" @bind-Value="_selectedFilm" Disabled="@(string.IsNullOrEmpty(_selectedEqpid))" Clearable="true">
+                    @foreach (var item in _films) { <MudSelectItem T="string" Value="@item">@item</MudSelectItem> }
+                </MudSelect>
+            </MudItem>
+        </MudGrid>
+    </MudCollapse>
+</MudPaper>
+
+@if (_isGridVisible)
+{
+    <MudDataGrid @ref="_dataGrid" T="WaferFlatDataDto" ServerData="LoadData" Striped="true" Hover="true" Dense="true">
+        <Columns>
+            <PropertyColumn Property="x => x.DateTime" Title="Date Time" Format="yyyy-MM-dd HH:mm:ss" />
+            <PropertyColumn Property="x => x.LotId" Title="Lot ID" />
+            <PropertyColumn Property="x => x.WaferId" Title="Wafer ID" />
+            <PropertyColumn Property="x => x.CassetteRcp" Title="Cassette RCP" />
+            <PropertyColumn Property="x => x.StageRcp" Title="Stage RCP" />
+            <PropertyColumn Property="x => x.StageGroup" Title="Stage Group" />
+            <PropertyColumn Property="x => x.Film" Title="Film" />
+        </Columns>
+        <PagerContent>
+            <MudDataGridPager T="WaferFlatDataDto" />
+        </PagerContent>
+    </MudDataGrid>
+}
+else
+{
+    <MudAlert Severity="Severity.Info" Class="mt-4">EQP ID를 선택하시면 데이터가 표시됩니다.</MudAlert>
+}
+
+
+@code {
+    private MudDataGrid<WaferFlatDataDto> _dataGrid = default!;
+    private bool _isGridVisible = false;
+
+    private List<string> _sites = new();
+    private List<string> _sdwts = new();
+    private List<string> _eqpids = new();
+    private List<string> _lotIds = new();
+    private List<string> _waferIds = new();
+    private List<string> _cassetteRcps = new();
+    private List<string> _stageRcps = new();
+    private List<string> _stageGroups = new();
+    private List<string> _films = new();
+
+    private string? _selectedSite;
+    private string? _selectedSdwt;
+    private string? _selectedEqpid;
+    private string? _selectedLotId;
+    private string? _selectedWaferId;
+    private DateTime? _startDate;
+    private DateTime? _endDate;
+    private DateTime? _minSelectableDate;
+    private DateTime? _maxSelectableDate;
+    private bool _showAdvancedFilters;
+    private string? _selectedCassetteRcp;
+    private string? _selectedStageRcp;
+    private string? _selectedStageGroup;
+    private string? _selectedFilm;
+
+    protected override async Task OnInitializedAsync() => await LoadSites();
+
+    private async Task LoadSites()
+    {
+        var client = HttpClientFactory.CreateClient("ITM.Dashboard.Api");
+        _sites = await client.GetFromJsonAsync<List<string>>("api/Filters/sites") ?? new();
+    }
+
+    private async Task OnSiteChanged(string newSite)
+    {
+        _selectedSite = newSite;
+        ResetDependentFilters("site");
+        if (!string.IsNullOrEmpty(_selectedSite))
+        {
+            var client = HttpClientFactory.CreateClient("ITM.Dashboard.Api");
+            _sdwts = await client.GetFromJsonAsync<List<string>>($"api/Filters/sdwts/{_selectedSite}") ?? new();
+        }
+    }
+
+    private async Task OnSdwtChanged(string newSdwt)
+    {
+        _selectedSdwt = newSdwt;
+        ResetDependentFilters("sdwt");
+        if (!string.IsNullOrEmpty(_selectedSdwt))
+        {
+            var client = HttpClientFactory.CreateClient("ITM.Dashboard.Api");
+            _eqpids = await client.GetFromJsonAsync<List<string>>($"api/Filters/eqpids/{_selectedSdwt}") ?? new();
+        }
+    }
+
+    private async Task OnEqpidChanged(string newEqpid)
+    {
+        _selectedEqpid = newEqpid;
+        ResetDependentFilters("eqpid");
+        _isGridVisible = !string.IsNullOrEmpty(_selectedEqpid);
+
+        if (_isGridVisible && _selectedEqpid is not null)
+        {
+            await LoadAdvancedFilterOptions(_selectedEqpid);
+            await InitializeDateFilters(_selectedEqpid);
+            await LoadLotIds(_selectedEqpid);
+            if (_dataGrid is not null)
+            {
+                await _dataGrid.ReloadServerData();
+            }
+        }
+    }
+
+    private async Task OnLotIdChanged(string newLotId)
+    {
+        _selectedLotId = newLotId;
+        ResetDependentFilters("lotid");
+        if (!string.IsNullOrEmpty(_selectedEqpid) && !string.IsNullOrEmpty(_selectedLotId))
+        {
+            await LoadWaferIds(_selectedEqpid, _selectedLotId);
+        }
+    }
+
+    private async Task InitializeDateFilters(string eqpid)
+    {
+        var client = HttpClientFactory.CreateClient("ITM.Dashboard.Api");
+        var dateRange = await client.GetFromJsonAsync<DateRangeDto>($"api/Filters/daterange?eqpid={eqpid}");
+        if (dateRange is not null)
+        {
+            _minSelectableDate = dateRange.MinDate;
+            _maxSelectableDate = dateRange.MaxDate;
+            _startDate = _minSelectableDate;
+            _endDate = _maxSelectableDate;
+        }
+    }
+
+    private void OnStartDateChanged(DateTime? newStartDate)
+    {
+        _startDate = newStartDate;
+        _endDate = null;
+        if (_startDate.HasValue)
+        {
+            var thirtyDaysAfter = _startDate.Value.AddDays(30);
+            var originalMaxDate = _maxSelectableDate;
+            _maxSelectableDate = (thirtyDaysAfter < originalMaxDate.GetValueOrDefault(DateTime.MaxValue))
+                               ? thirtyDaysAfter
+                               : originalMaxDate;
+        }
+    }
+
+    private void OnEndDateChanged(DateTime? newEndDate)
+    {
+        _endDate = newEndDate;
+        _startDate = null;
+        if (_endDate.HasValue)
+        {
+            var thirtyDaysBefore = _endDate.Value.AddDays(-30);
+            var originalMinDate = _minSelectableDate;
+            _minSelectableDate = (thirtyDaysBefore > originalMinDate.GetValueOrDefault(DateTime.MinValue))
+                               ? thirtyDaysBefore
+                               : originalMinDate;
+        }
+    }
+
+    private async Task LoadAdvancedFilterOptions(string eqpid)
+    {
+        var client = HttpClientFactory.CreateClient("ITM.Dashboard.Api");
+        _cassetteRcps = await client.GetFromJsonAsync<List<string>>($"api/Filters/cassettercps/{eqpid}") ?? new();
+        _stageRcps = await client.GetFromJsonAsync<List<string>>($"api/Filters/stagercps/{eqpid}") ?? new();
+        _stageGroups = await client.GetFromJsonAsync<List<string>>($"api/Filters/stagegroups/{eqpid}") ?? new();
+        _films = await client.GetFromJsonAsync<List<string>>($"api/Filters/films/{eqpid}") ?? new();
+    }
+
+    private async Task LoadLotIds(string eqpid)
+    {
+        var client = HttpClientFactory.CreateClient("ITM.Dashboard.Api");
+        _lotIds = await client.GetFromJsonAsync<List<string>>($"api/Filters/lotids/{eqpid}") ?? new();
+    }
+
+    private async Task LoadWaferIds(string eqpid, string lotid)
+    {
+        var client = HttpClientFactory.CreateClient("ITM.Dashboard.Api");
+        _waferIds = await client.GetFromJsonAsync<List<string>>($"api/Filters/waferids/{eqpid}/{lotid}") ?? new();
+    }
+    
+    private async Task<IEnumerable<string>> SearchEqpids(string value, CancellationToken token)
+    {
+        await Task.Yield();
+        if (string.IsNullOrEmpty(value)) return _eqpids;
+        return _eqpids.Where(x => x.Contains(value, StringComparison.InvariantCultureIgnoreCase));
+    }
+    
+    private async Task<IEnumerable<string>> SearchLotIds(string value, CancellationToken token)
+    {
+        await Task.Yield();
+        if (string.IsNullOrEmpty(value)) return _lotIds;
+        return _lotIds.Where(x => x.Contains(value, StringComparison.InvariantCultureIgnoreCase));
+    }
+
+    private async Task<IEnumerable<string>> SearchWaferIds(string value, CancellationToken token)
+    {
+        await Task.Yield();
+        if (string.IsNullOrEmpty(value)) return _waferIds;
+        return _waferIds.Where(x => x.Contains(value, StringComparison.InvariantCultureIgnoreCase));
+    }
+
+    private async Task SearchData()
+    {
+        if (_dataGrid is not null)
+        {
+            await _dataGrid.ReloadServerData();
+        }
+    }
+
+    private void ResetDependentFilters(string level)
+    {
+        if (level == "site") { _selectedSdwt = null; _sdwts.Clear(); }
+        if (level == "site" || level == "sdwt") { _selectedEqpid = null; _eqpids.Clear(); _isGridVisible = false; }
+        if (level == "site" || level == "sdwt" || level == "eqpid")
+        {
+            _selectedLotId = null; _lotIds.Clear();
+            _selectedCassetteRcp = null; _cassetteRcps.Clear();
+            _selectedStageRcp = null; _stageRcps.Clear();
+            _selectedStageGroup = null; _stageGroups.Clear();
+            _selectedFilm = null; _films.Clear();
+        }
+        if (level == "site" || level == "sdwt" || level == "eqpid" || level == "lotid")
+        {
+            _selectedWaferId = null; _waferIds.Clear();
+        }
+    }
+
+    private async Task ResetFilters()
+    {
+        _selectedSite = null;
+        ResetDependentFilters("site");
+        if (_dataGrid is not null)
+        {
+            await _dataGrid.ReloadServerData();
+        }
+    }
+
+    private async Task<GridData<WaferFlatDataDto>> LoadData(GridState<WaferFlatDataDto> state)
+    {
+        if (string.IsNullOrEmpty(_selectedEqpid))
+        {
+             return new GridData<WaferFlatDataDto>() { Items = new List<WaferFlatDataDto>(), TotalItems = 0 };
+        }
+        
+        var client = HttpClientFactory.CreateClient("ITM.Dashboard.Api");
+        var query = new List<string> { $"page={state.Page}", $"pageSize={state.PageSize}" };
+
+        if (!string.IsNullOrEmpty(_selectedEqpid)) query.Add($"eqpid={Uri.EscapeDataString(_selectedEqpid)}");
+        if (!string.IsNullOrEmpty(_selectedLotId)) query.Add($"lotid={Uri.EscapeDataString(_selectedLotId)}");
+        if (int.TryParse(_selectedWaferId, out var waferId)) query.Add($"waferid={waferId}");
+        if (_startDate.HasValue) query.Add($"startDate={_startDate.Value:yyyy-MM-dd}");
+        if (_endDate.HasValue) query.Add($"endDate={_endDate.Value:yyyy-MM-dd}");
+        if (!string.IsNullOrEmpty(_selectedCassetteRcp)) query.Add($"cassettercp={Uri.EscapeDataString(_selectedCassetteRcp)}");
+        if (!string.IsNullOrEmpty(_selectedStageRcp)) query.Add($"stagercp={Uri.EscapeDataString(_selectedStageRcp)}");
+        if (!string.IsNullOrEmpty(_selectedStageGroup)) query.Add($"stagegroup={Uri.EscapeDataString(_selectedStageGroup)}");
+        if (!string.IsNullOrEmpty(_selectedFilm)) query.Add($"film={Uri.EscapeDataString(_selectedFilm)}");
+
+        var url = $"api/WaferData/flatdata?{string.Join("&", query)}";
+
+        try
+        {
+            var response = await client.GetAsync(url);
+            if (response.IsSuccessStatusCode)
+            {
+                var content = await response.Content.ReadAsStringAsync();
+                using (var jsonDoc = JsonDocument.Parse(content))
+                {
+                    var root = jsonDoc.RootElement;
+                    var itemsJson = root.GetProperty("items").GetRawText();
+                    var totalItems = root.GetProperty("totalItems").GetInt64();
+                    var options = new JsonSerializerOptions { PropertyNameCaseInsensitive = true };
+                    var items = JsonSerializer.Deserialize<List<WaferFlatDataDto>>(itemsJson, options);
+                    if (items is not null)
+                    {
+                        return new GridData<WaferFlatDataDto>() { Items = items, TotalItems = (int)totalItems };
+                    }
+                }
+            }
+        }
+        catch (Exception ex)
+        {
+            Console.WriteLine($"데이터를 가져오는 중 오류 발생: {ex.Message}");
+        }
+        return new GridData<WaferFlatDataDto>() { Items = new List<WaferFlatDataDto>(), TotalItems = 0 };
+    }
+}
