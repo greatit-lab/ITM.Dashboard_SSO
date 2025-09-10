@@ -52,7 +52,14 @@ public class WaferDataController : ControllerBase
 
         string whereQuery = whereClauses.Any() ? "WHERE " + string.Join(" AND ", whereClauses) : "";
 
-        var countSql = $"SELECT COUNT(*) FROM public.plg_wf_flat {whereQuery};";
+        var countSql = $@"
+            SELECT COUNT(*) FROM (
+                SELECT 1
+                FROM public.plg_wf_flat
+                {whereQuery}
+                GROUP BY datetime, lotid, waferid, cassettercp, stagercp, stagegroup, film
+            ) AS distinct_rows;";
+
         await using (var countCmd = new NpgsqlCommand(countSql, conn))
         {
             foreach (var p in parameters) { countCmd.Parameters.AddWithValue(p.Key, p.Value); }
@@ -60,7 +67,16 @@ public class WaferDataController : ControllerBase
             if (result != null && result != DBNull.Value) { totalItems = Convert.ToInt64(result); }
         }
 
-        var dataSql = $"SELECT lotid, waferid, datetime, point, x, y, cassettercp, stagercp, stagegroup, film FROM public.plg_wf_flat {whereQuery} ORDER BY datetime DESC OFFSET @Offset LIMIT @PageSize;";
+        var dataSql = $@"
+            SELECT 
+                lotid, waferid, datetime, cassettercp, stagercp, stagegroup, film 
+            FROM public.plg_wf_flat 
+            {whereQuery} 
+            GROUP BY 
+                datetime, lotid, waferid, cassettercp, stagercp, stagegroup, film
+            ORDER BY 
+                datetime ASC 
+            OFFSET @Offset LIMIT @PageSize;";
 
         await using var cmd = new NpgsqlCommand(dataSql, conn);
         foreach (var p in parameters) { cmd.Parameters.AddWithValue(p.Key, p.Value); }
@@ -75,13 +91,10 @@ public class WaferDataController : ControllerBase
                 LotId = reader.IsDBNull(0) ? null : reader.GetString(0),
                 WaferId = reader.IsDBNull(1) ? (int?)null : reader.GetInt32(1),
                 DateTime = reader.IsDBNull(2) ? (DateTime?)null : reader.GetDateTime(2),
-                Point = reader.GetInt32(3),
-                X = reader.GetDouble(4),
-                Y = reader.GetDouble(5),
-                CassetteRcp = reader.IsDBNull(6) ? null : reader.GetString(6),
-                StageRcp = reader.IsDBNull(7) ? null : reader.GetString(7),
-                StageGroup = reader.IsDBNull(8) ? null : reader.GetString(8),
-                Film = reader.IsDBNull(9) ? null : reader.GetString(9)
+                CassetteRcp = reader.IsDBNull(3) ? null : reader.GetString(3),
+                StageRcp = reader.IsDBNull(4) ? null : reader.GetString(4),
+                StageGroup = reader.IsDBNull(5) ? null : reader.GetString(5),
+                Film = reader.IsDBNull(6) ? null : reader.GetString(6)
             });
         }
 
