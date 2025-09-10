@@ -256,11 +256,20 @@ else
         if (string.IsNullOrEmpty(value)) return _eqpids;
         return _eqpids.Where(x => x.Contains(value, StringComparison.InvariantCultureIgnoreCase));
     }
-    
+
     private async Task<IEnumerable<string>> SearchLotIds(string value, CancellationToken token)
     {
         await Task.Yield();
-        if (string.IsNullOrEmpty(value)) return _lotIds;
+
+        if (!string.IsNullOrEmpty(value) && value == _selectedLotId)
+        {
+            return _lotIds;
+        }
+
+        if (string.IsNullOrEmpty(value))
+        {
+            return _lotIds;
+        }
         return _lotIds.Where(x => x.Contains(value, StringComparison.InvariantCultureIgnoreCase));
     }
 
