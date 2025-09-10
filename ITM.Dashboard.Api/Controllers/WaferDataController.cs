@@ -1,4 +1,4 @@
-// 파일 경로: ITM.Dashboard.Api/Controllers/WaferDataController.cs
+// ITM.Dashboard.Api/Controllers/WaferDataController.cs
 using ITM.Dashboard.Api.Models;
 using Microsoft.AspNetCore.Mvc;
 using Npgsql;
@@ -61,7 +61,7 @@ public class WaferDataController : ControllerBase
         }
 
         var dataSql = $"SELECT lotid, waferid, datetime, point, x, y, cassettercp, stagercp, stagegroup, film FROM public.plg_wf_flat {whereQuery} ORDER BY datetime DESC OFFSET @Offset LIMIT @PageSize;";
-        
+
         await using var cmd = new NpgsqlCommand(dataSql, conn);
         foreach (var p in parameters) { cmd.Parameters.AddWithValue(p.Key, p.Value); }
         cmd.Parameters.AddWithValue("Offset", page * pageSize);
@@ -84,7 +84,7 @@ public class WaferDataController : ControllerBase
                 Film = reader.IsDBNull(9) ? null : reader.GetString(9)
             });
         }
-        
+
         return Ok(new { items = results, totalItems });
     }
 }
