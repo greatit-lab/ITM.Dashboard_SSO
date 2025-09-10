@@ -95,7 +95,7 @@ public class FiltersController : ControllerBase
             DateTime thirtyDaysAgo = DateTime.Today.AddDays(-30);
 
             DateTime? defaultStartDate = (dbMinDate.HasValue && dbMinDate.Value > thirtyDaysAgo) 
-                                         ? dbMinDate.Value 
+                                         ? dbMinDate.Value
                                          : thirtyDaysAgo;
 
             var dateRange = new DateRangeDto
