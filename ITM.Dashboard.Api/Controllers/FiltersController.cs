@@ -115,7 +115,7 @@ public class FiltersController : ControllerBase
                 parameters[columnName] = value;
             }
         }
-        
+
         if (startDate.HasValue) { whereClauses.Add("datetime >= @startDate"); parameters["startDate"] = startDate.Value; }
         if (endDate.HasValue) { whereClauses.Add("datetime <= @endDate"); parameters["endDate"] = endDate.Value.AddDays(1).AddTicks(-1); }
 
@@ -124,8 +124,7 @@ public class FiltersController : ControllerBase
         AddCondition(stageRcp, "stagercp");
         AddCondition(stageGroup, "stagegroup");
         AddCondition(film, "film");
-        
-        // WaferId는 숫자 타입이므로 별도 처리
+
         if (waferId.HasValue && "waferid" != targetColumn)
         {
             whereClauses.Add("waferid = @waferid");
@@ -137,15 +136,18 @@ public class FiltersController : ControllerBase
 
         await using var cmd = new NpgsqlCommand(sql, conn);
         foreach (var p in parameters) { cmd.Parameters.AddWithValue(p.Key, p.Value); }
-        
+
         await using var reader = await cmd.ExecuteReaderAsync();
         while (await reader.ReadAsync())
         {
-            results.Add(reader[0].ToString());
+            if (!reader.IsDBNull(0))
+            {
+                results.Add(reader[0].ToString()!);
+            }
         }
         return Ok(results);
     }
-    
+
     // ▼▼▼ [수정] 각 필터 API가 새로운 공용 메서드를 호출하도록 변경 ▼▼▼
     [HttpGet("cassettercps")]
     public Task<ActionResult<IEnumerable<string>>> GetCassetteRcps([FromQuery] string eqpid, [FromQuery] DateTime? startDate, [FromQuery] DateTime? endDate, [FromQuery] string? lotId, [FromQuery] int? waferId, [FromQuery] string? cassetteRcp, [FromQuery] string? stageRcp, [FromQuery] string? stageGroup, [FromQuery] string? film)
@@ -164,9 +166,9 @@ public class FiltersController : ControllerBase
         => GetFilteredDistinctValues("film", eqpid, startDate, endDate, lotId, waferId, cassetteRcp, stageRcp, stageGroup, film);
 
     [HttpGet("lotids")]
-     public Task<ActionResult<IEnumerable<string>>> GetLotIds([FromQuery] string eqpid, [FromQuery] DateTime? startDate, [FromQuery] DateTime? endDate, [FromQuery] string? lotId, [FromQuery] int? waferId, [FromQuery] string? cassetteRcp, [FromQuery] string? stageRcp, [FromQuery] string? stageGroup, [FromQuery] string? film)
+    public Task<ActionResult<IEnumerable<string>>> GetLotIds([FromQuery] string eqpid, [FromQuery] DateTime? startDate, [FromQuery] DateTime? endDate, [FromQuery] string? lotId, [FromQuery] int? waferId, [FromQuery] string? cassetteRcp, [FromQuery] string? stageRcp, [FromQuery] string? stageGroup, [FromQuery] string? film)
         => GetFilteredDistinctValues("lotid", eqpid, startDate, endDate, lotId, waferId, cassetteRcp, stageRcp, stageGroup, film);
-    
+
     [HttpGet("waferids")]
     public Task<ActionResult<IEnumerable<string>>> GetWaferIds([FromQuery] string eqpid, [FromQuery] DateTime? startDate, [FromQuery] DateTime? endDate, [FromQuery] string? lotId, [FromQuery] int? waferId, [FromQuery] string? cassetteRcp, [FromQuery] string? stageRcp, [FromQuery] string? stageGroup, [FromQuery] string? film)
         => GetFilteredDistinctValues("waferid", eqpid, startDate, endDate, lotId, waferId, cassetteRcp, stageRcp, stageGroup, film);
