@@ -469,7 +469,7 @@ else
         _selectedEqpid = newEqpid;
         ResetDependentFilters("eqpid");
         _isGridVisible = !string.IsNullOrEmpty(_selectedEqpid);
-        _selectedRowItem = null; 
+        _selectedRowItem = null;
         _statistics = null;
         _pointData = null;
         if (_isGridVisible)
@@ -529,7 +529,7 @@ else
     {
         await Task.Yield();
         if (string.IsNullOrEmpty(value)) return _eqpids;
-        return _eqpids.Where(x => x.Contains(value, StringComparison.InvariantCultureIgnoreCase));
+        return _eqpids.Where(x => x.Contains(value, StringComparison.InvariantCultureIgnoreCase)) ?? Enumerable.Empty<string>();
     }
 
     private async Task<IEnumerable<string>> SearchLotIds(string value, CancellationToken token)
@@ -537,14 +537,14 @@ else
         await Task.Yield();
         if (!string.IsNullOrEmpty(value) && value == _selectedLotId) return _lotIds;
         if (string.IsNullOrEmpty(value)) return _lotIds;
-        return _lotIds.Where(x => x.Contains(value, StringComparison.InvariantCultureIgnoreCase));
+        return _lotIds.Where(x => x.Contains(value, StringComparison.InvariantCultureIgnoreCase)) ?? Enumerable.Empty<string>();
     }
 
     private async Task<IEnumerable<string>> SearchWaferIds(string value, CancellationToken token)
     {
         await Task.Yield();
         if (string.IsNullOrEmpty(value)) return _waferIds;
-        return _waferIds.Where(x => x.Contains(value, StringComparison.InvariantCultureIgnoreCase));
+        return _waferIds.Where(x => x.Contains(value, StringComparison.InvariantCultureIgnoreCase)) ?? Enumerable.Empty<string>();
     }
 
     private async Task SearchData()
@@ -562,14 +562,8 @@ else
     {
         if (level == "site") { _selectedSdwt = null; _sdwts.Clear(); }
         if (level == "site" || level == "sdwt") { _selectedEqpid = null; _eqpids.Clear(); _isGridVisible = false; }
-        if (level == "site" || level == "sdwt" || level == "eqpid")
-        {
-            _selectedLotId = null;
-        }
-        if (level == "site" || level == "sdwt" || level == "eqpid" || level == "lotid")
-        {
-            _selectedWaferId = null;
-        }
+        if (level == "site" || level == "sdwt" || level == "eqpid") { _selectedLotId = null; }
+        if (level == "site" || level == "sdwt" || level == "eqpid" || level == "lotid") { _selectedWaferId = null; }
     }
 
     private async Task ResetFilters()
@@ -616,8 +610,19 @@ else
         var client = HttpClientFactory.CreateClient("ITM.Dashboard.Api");
         var query = new List<string> { $"page={state.Page}", $"pageSize={state.PageSize}" };
 
+        var sort = state.SortDefinitions.FirstOrDefault();
+        if (sort != null && !string.IsNullOrEmpty(sort.SortBy))
+        {
+            query.Add($"sortLabel={Uri.EscapeDataString(sort.SortBy)}");
+            var direction = sort.Descending ? "Descending" : "Ascending";
+            query.Add($"sortDirection={direction}");
+        }
+
         var filterQuery = BuildFilterQuery();
-        query.Add(filterQuery);
+        if (!string.IsNullOrEmpty(filterQuery))
+        {
+             query.Add(filterQuery);
+        }
         
         var url = $"api/WaferData/flatdata?{string.Join("&", query)}";
         try
