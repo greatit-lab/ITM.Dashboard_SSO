@@ -49,8 +49,8 @@ namespace ITM.Dashboard.Api.Controllers
                 FROM public.plg_wf_flat
                 WHERE lotid = @lotId
                   AND waferid = @waferId
-                  AND datetime = @dateTime
                   AND serv_ts = @servTs
+                  AND datetime = @dateTime
                   AND cassettercp = @cassetteRcp
                   AND stagercp = @stageRcp
                   AND stagegroup = @stageGroup
@@ -95,7 +95,7 @@ namespace ITM.Dashboard.Api.Controllers
             }
             else
             {
-                 _logger.LogWarning("Statistics data NOT FOUND for LotId={lotId}", lotId);
+                _logger.LogWarning("Statistics data NOT FOUND for LotId={lotId}", lotId);
             }
             return Ok(statistics);
         }
