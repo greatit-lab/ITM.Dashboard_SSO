@@ -12,16 +12,15 @@
         font-size: 0.8rem !important;
         line-height: 1.4 !important;
     }
-
-    /* ▼▼▼ [수정] MudBlazor 컴포넌트 구조에 최적화된 새로운 헤더 고정 스타일 ▼▼▼ */
     .mud-table-sticky-header .mud-table-container {
-        height: 100%; /* 부모 컴포넌트가 지정한 Height 값을 따르도록 설정 */
+        height: 170px;
+        overflow-y: auto;
     }
     .mud-table-sticky-header thead th {
         position: sticky;
         top: 0;
         z-index: 1;
-        background-color: var(--mud-palette-surface, #fff); 
+        background-color: var(--mud-palette-surface, #fff);
     }
 </style>
 
@@ -33,12 +32,18 @@
     <MudGrid Spacing="2" AlignItems="AlignItems.Center">
         <MudItem xs="6" sm="2" md="1">
             <MudSelect T="string" Label="Site" Required="true" Value="_selectedSite" ValueChanged="OnSiteChanged" Dense="true" Margin="Margin.Dense">
-                @foreach (var site in _sites) { <MudSelectItem T="string" Value="@site">@site</MudSelectItem> }
+                @foreach (var site in _sites)
+                {
+                    <MudSelectItem T="string" Value="@site">@site</MudSelectItem>
+                }
             </MudSelect>
         </MudItem>
         <MudItem xs="6" sm="2" md="1">
             <MudSelect T="string" Label="SDWT" Value="_selectedSdwt" ValueChanged="OnSdwtChanged" Disabled="@(string.IsNullOrEmpty(_selectedSite))" Dense="true" Margin="Margin.Dense">
-                @foreach (var sdwt in _sdwts) { <MudSelectItem T="string" Value="@sdwt">@sdwt</MudSelectItem> }
+                @foreach (var sdwt in _sdwts)
+                {
+                    <MudSelectItem T="string" Value="@sdwt">@sdwt</MudSelectItem>
+                }
             </MudSelect>
         </MudItem>
         <MudItem xs="12" sm="4" md="1">
@@ -87,28 +92,40 @@
                 <MudSelect T="string" Label="Cassette RCP"
                            Value="_selectedCassetteRcp" ValueChanged="(string val) => OnAdvancedFilterChanged(val, nameof(_selectedCassetteRcp))"
                            Disabled="@(string.IsNullOrEmpty(_selectedEqpid))" Clearable="true" Dense="true" Margin="Margin.Dense">
-                    @foreach (var item in _cassetteRcps) { <MudSelectItem T="string" Value="@item">@item</MudSelectItem> }
+                    @foreach (var item in _cassetteRcps)
+                    {
+                        <MudSelectItem T="string" Value="@item">@item</MudSelectItem>
+                    }
                 </MudSelect>
             </MudItem>
             <MudItem xs="12" sm="6" md="3">
                 <MudSelect T="string" Label="Stage RCP"
                            Value="_selectedStageRcp" ValueChanged="(string val) => OnAdvancedFilterChanged(val, nameof(_selectedStageRcp))"
                            Disabled="@(string.IsNullOrEmpty(_selectedEqpid))" Clearable="true" Dense="true" Margin="Margin.Dense">
-                    @foreach (var item in _stageRcps) { <MudSelectItem T="string" Value="@item">@item</MudSelectItem> }
+                    @foreach (var item in _stageRcps)
+                    {
+                        <MudSelectItem T="string" Value="@item">@item</MudSelectItem>
+                    }
                 </MudSelect>
             </MudItem>
             <MudItem xs="12" sm="6" md="3">
                 <MudSelect T="string" Label="Stage Group"
                            Value="_selectedStageGroup" ValueChanged="(string val) => OnAdvancedFilterChanged(val, nameof(_selectedStageGroup))"
                            Disabled="@(string.IsNullOrEmpty(_selectedEqpid))" Clearable="true" Dense="true" Margin="Margin.Dense">
-                    @foreach (var item in _stageGroups) { <MudSelectItem T="string" Value="@item">@item</MudSelectItem> }
+                    @foreach (var item in _stageGroups)
+                    {
+                        <MudSelectItem T="string" Value="@item">@item</MudSelectItem>
+                    }
                 </MudSelect>
             </MudItem>
             <MudItem xs="12" sm="6" md="3">
                 <MudSelect T="string" Label="Film"
                            Value="_selectedFilm" ValueChanged="(string val) => OnAdvancedFilterChanged(val, nameof(_selectedFilm))"
                            Disabled="@(string.IsNullOrEmpty(_selectedEqpid))" Clearable="true" Dense="true" Margin="Margin.Dense">
-                    @foreach (var item in _films) { <MudSelectItem T="string" Value="@item">@item</MudSelectItem> }
+                    @foreach (var item in _films)
+                    {
+                        <MudSelectItem T="string" Value="@item">@item</MudSelectItem>
+                    }
                 </MudSelect>
             </MudItem>
         </MudGrid>
@@ -140,7 +157,7 @@
 
     @if (_statistics != null)
     {
-        <MudSimpleTable Dense="true" Hover="true" Class="compact-grid mud-table-sticky-header mt-4" Height="155px">
+        <MudSimpleTable Dense="true" Hover="true" Class="compact-grid mud-table-sticky-header mt-4">
             <thead>
                 <tr>
                     <th>Statistics</th>
@@ -207,7 +224,7 @@
     @if (_selectedRowItem != null)
     {
         <MudText Typo="Typo.h6" GutterBottom="true" Class="mt-4">포인트 데이터 (Point Data)</MudText>
-        
+
         @if (_isPointDataLoading)
         {
             <MudProgressCircular Indeterminate="true" Size="Size.Small" Class="mt-4" />
@@ -307,7 +324,7 @@ else
             StateHasChanged();
             return;
         }
-        
+
         _statistics = null;
         _pointData = null;
         _isPointDataLoading = true;
