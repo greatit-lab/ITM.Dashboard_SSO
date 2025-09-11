@@ -381,8 +381,15 @@ else
         await UpdateAllFilters();
     }
 
-    private async Task OnAdvancedFilterChanged<T>(T value)
+    private async Task OnAdvancedFilterChanged(string value, string filterName)
     {
+        switch (filterName)
+        {
+            case nameof(_selectedCassetteRcp): _selectedCassetteRcp = value; break;
+            case nameof(_selectedStageRcp): _selectedStageRcp = value; break;
+            case nameof(_selectedStageGroup): _selectedStageGroup = value; break;
+            case nameof(_selectedFilm): _selectedFilm = value; break;
+        }
         await UpdateAllFilters();
     }
 
@@ -399,62 +406,6 @@ else
         }
     }
 
-    private async Task OnStartDateChanged(DateTime? newStartDate)
-    {
-        _startDate = newStartDate;
-        if (!string.IsNullOrEmpty(_selectedEqpid))
-        {
-            await LoadLotIds();
-        }
-    }
-
-    private async Task OnEndDateChanged(DateTime? newEndDate)
-    {
-        _endDate = newEndDate;
-        if (!string.IsNullOrEmpty(_selectedEqpid))
-        {
-            await LoadLotIds();
-        }
-    }
-
-    private async Task LoadAdvancedFilterOptions(string eqpid)
-    {
-        var client = HttpClientFactory.CreateClient("ITM.Dashboard.Api");
-        _cassetteRcps = await client.GetFromJsonAsync<List<string>>($"api/Filters/cassettercps/{eqpid}") ?? new();
-        _stageRcps = await client.GetFromJsonAsync<List<string>>($"api/Filters/stagercps/{eqpid}") ?? new();
-        _stageGroups = await client.GetFromJsonAsync<List<string>>($"api/Filters/stagegroups/{eqpid}") ?? new();
-        _films = await client.GetFromJsonAsync<List<string>>($"api/Filters/films/{eqpid}") ?? new();
-    }
-
-    private async Task LoadLotIds()
-    {
-        if (string.IsNullOrEmpty(_selectedEqpid)) return;
-
-        var client = HttpClientFactory.CreateClient("ITM.Dashboard.Api");
-        var query = new List<string>();
-        if (_startDate.HasValue) query.Add($"startDate={_startDate.Value:yyyy-MM-dd}");
-        if (_endDate.HasValue) query.Add($"endDate={_endDate.Value:yyyy-MM-dd}");
-
-        var queryString = query.Any() ? "?" + string.Join("&", query) : "";
-        var url = $"api/Filters/lotids/{_selectedEqpid}{queryString}";
-
-        _lotIds = await client.GetFromJsonAsync<List<string>>(url) ?? new();
-
-        if (!string.IsNullOrEmpty(_selectedLotId) && !_lotIds.Contains(_selectedLotId))
-        {
-            _selectedLotId = null;
-            ResetDependentFilters("lotid");
-        }
-
-        StateHasChanged();
-    }
-
-    private async Task LoadWaferIds(string eqpid, string lotid)
-    {
-        var client = HttpClientFactory.CreateClient("ITM.Dashboard.Api");
-        _waferIds = await client.GetFromJsonAsync<List<string>>($"api/Filters/waferids/{eqpid}/{lotid}") ?? new();
-    }
-
     private async Task<IEnumerable<string>> SearchEqpids(string value, CancellationToken token)
     {
         await Task.Yield();
@@ -465,16 +416,8 @@ else
     private async Task<IEnumerable<string>> SearchLotIds(string value, CancellationToken token)
     {
         await Task.Yield();
-
-        if (!string.IsNullOrEmpty(value) && value == _selectedLotId)
-        {
-            return _lotIds;
-        }
-
-        if (string.IsNullOrEmpty(value))
-        {
-            return _lotIds;
-        }
+        if (!string.IsNullOrEmpty(value) && value == _selectedLotId) return _lotIds;
+        if (string.IsNullOrEmpty(value)) return _lotIds;
         return _lotIds.Where(x => x.Contains(value, StringComparison.InvariantCultureIgnoreCase));
     }
 
@@ -490,6 +433,7 @@ else
         if (_dataGrid is not null)
         {
             await _dataGrid.ReloadServerData();
+            _statistics = null;
         }
     }
 
@@ -499,27 +443,47 @@ else
         if (level == "site" || level == "sdwt") { _selectedEqpid = null; _eqpids.Clear(); _isGridVisible = false; }
         if (level == "site" || level == "sdwt" || level == "eqpid")
         {
-            _selectedLotId = null; _lotIds.Clear();
-            _selectedCassetteRcp = null; _cassetteRcps.Clear();
-            _selectedStageRcp = null; _stageRcps.Clear();
-            _selectedStageGroup = null; _stageGroups.Clear();
-            _selectedFilm = null; _films.Clear();
+            _selectedLotId = null;
         }
         if (level == "site" || level == "sdwt" || level == "eqpid" || level == "lotid")
         {
             _selectedWaferId = null;
-            _waferIds.Clear();
         }
     }
 
     private async Task ResetFilters()
     {
         _selectedSite = null;
-        ResetDependentFilters("site");
+        _selectedSdwt = null;
+        _selectedEqpid = null;
+        _selectedLotId = null;
+        _selectedWaferId = null;
+        _startDate = null;
+        _endDate = null;
+        _minSelectableDate = null;
+        _maxSelectableDate = null;
+        _selectedCassetteRcp = null;
+        _selectedStageRcp = null;
+        _selectedStageGroup = null;
+        _selectedFilm = null;
+        
+        _sdwts.Clear();
+        _eqpids.Clear();
+        _lotIds.Clear();
+        _waferIds.Clear();
+        _cassetteRcps.Clear();
+        _stageRcps.Clear();
+        _stageGroups.Clear();
+        _films.Clear();
+        
+        _isGridVisible = false;
+        _statistics = null;
+
         if (_dataGrid is not null)
         {
             await _dataGrid.ReloadServerData();
         }
+        StateHasChanged();
     }
 
     private async Task<GridData<WaferFlatDataDto>> LoadData(GridState<WaferFlatDataDto> state)
@@ -532,18 +496,10 @@ else
         var client = HttpClientFactory.CreateClient("ITM.Dashboard.Api");
         var query = new List<string> { $"page={state.Page}", $"pageSize={state.PageSize}" };
 
-        if (!string.IsNullOrEmpty(_selectedEqpid)) query.Add($"eqpid={Uri.EscapeDataString(_selectedEqpid)}");
-        if (!string.IsNullOrEmpty(_selectedLotId)) query.Add($"lotid={Uri.EscapeDataString(_selectedLotId)}");
-        if (int.TryParse(_selectedWaferId, out var waferId)) query.Add($"waferid={waferId}");
-        if (_startDate.HasValue) query.Add($"startDate={_startDate.Value:yyyy-MM-dd}");
-        if (_endDate.HasValue) query.Add($"endDate={_endDate.Value:yyyy-MM-dd}");
-        if (!string.IsNullOrEmpty(_selectedCassetteRcp)) query.Add($"cassettercp={Uri.EscapeDataString(_selectedCassetteRcp)}");
-        if (!string.IsNullOrEmpty(_selectedStageRcp)) query.Add($"stagercp={Uri.EscapeDataString(_selectedStageRcp)}");
-        if (!string.IsNullOrEmpty(_selectedStageGroup)) query.Add($"stagegroup={Uri.EscapeDataString(_selectedStageGroup)}");
-        if (!string.IsNullOrEmpty(_selectedFilm)) query.Add($"film={Uri.EscapeDataString(_selectedFilm)}");
-
+        var filterQuery = BuildFilterQuery();
+        query.Add(filterQuery);
+        
         var url = $"api/WaferData/flatdata?{string.Join("&", query)}";
-
         try
         {
             var response = await client.GetAsync(url);
