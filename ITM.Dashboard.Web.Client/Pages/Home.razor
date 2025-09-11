@@ -12,6 +12,17 @@
         font-size: 0.8rem !important;
         line-height: 1.4 !important;
     }
+
+    /* ▼▼▼ [수정] MudBlazor 컴포넌트 구조에 최적화된 새로운 헤더 고정 스타일 ▼▼▼ */
+    .mud-table-sticky-header .mud-table-container {
+        height: 100%; /* 부모 컴포넌트가 지정한 Height 값을 따르도록 설정 */
+    }
+    .mud-table-sticky-header thead th {
+        position: sticky;
+        top: 0;
+        z-index: 1;
+        background-color: var(--mud-palette-surface, #fff); 
+    }
 </style>
 
 <PageTitle>Wafer Flat Data</PageTitle>
@@ -109,15 +120,18 @@
     <MudText Typo="Typo.h6" GutterBottom="true" Class="mt-4">Data Results</MudText>
 
     <MudDataGrid @ref="_dataGrid" T="WaferFlatDataDto" ServerData="LoadData" Striped="true" Hover="true" Dense="true" Class="compact-grid"
-                 RowClick="OnRowClicked" SelectedItemChanged="OnSelectedItemChanged" RowsPerPage="8">
+                 SelectedItemChanged="OnSelectedItemChanged"
+                 RowStyleFunc="RowStyleFunc"
+                 RowsPerPage="8">
         <Columns>
-            <PropertyColumn Property="x => x.DateTime" Title="Date Time" Format="yyyy-MM-dd HH:mm:ss" />
+            <PropertyColumn Property="x => x.ServTs" Title="Date Time" Format="yyyy-MM-dd HH:mm:ss" />
             <PropertyColumn Property="x => x.LotId" Title="Lot ID" />
             <PropertyColumn Property="x => x.WaferId" Title="Wafer ID" />
             <PropertyColumn Property="x => x.CassetteRcp" Title="Cassette RCP" />
             <PropertyColumn Property="x => x.StageRcp" Title="Stage RCP" />
             <PropertyColumn Property="x => x.StageGroup" Title="Stage Group" />
             <PropertyColumn Property="x => x.Film" Title="Film" />
+            <PropertyColumn Property="x => x.DateTime" Title="EQP Time" Format="yyyy-MM-dd HH:mm:ss" />
         </Columns>
         <PagerContent>
             <MudDataGridPager T="WaferFlatDataDto" HideRowsPerPage="true" />
@@ -126,7 +140,7 @@
 
     @if (_statistics != null)
     {
-        <MudSimpleTable Dense="true" Hover="true" Class="compact-grid" Style="max-height: 155px; overflow-y: auto;">
+        <MudSimpleTable Dense="true" Hover="true" Class="compact-grid mud-table-sticky-header mt-4" Height="155px">
             <thead>
                 <tr>
                     <th>Statistics</th>
@@ -189,6 +203,46 @@
             </tbody>
         </MudSimpleTable>
     }
+
+    @if (_selectedRowItem != null)
+    {
+        <MudText Typo="Typo.h6" GutterBottom="true" Class="mt-4">포인트 데이터 (Point Data)</MudText>
+        
+        @if (_isPointDataLoading)
+        {
+            <MudProgressCircular Indeterminate="true" Size="Size.Small" Class="mt-4" />
+        }
+        else if (_pointData != null && _pointData.Headers.Any())
+        {
+            <MudSimpleTable Dense="true" Hover="true" Class="compact-grid mud-table-sticky-header" Height="300px">
+                <thead>
+                    <tr>
+                        @foreach (var header in _pointData.Headers)
+                        {
+                            <th style="text-align: right;">@header</th>
+                        }
+                    </tr>
+                </thead>
+                <tbody>
+                    @foreach (var row in _pointData.Data)
+                    {
+                        <tr>
+                            @foreach (var cell in row)
+                            {
+                                <td style="text-align: right;">
+                                    @FormatValue(cell)
+                                </td>
+                            }
+                        </tr>
+                    }
+                </tbody>
+            </MudSimpleTable>
+        }
+        else
+        {
+            <MudText Class="mt-4">선택된 항목에 대한 포인트 데이터가 없습니다.</MudText>
+        }
+    }
 }
 else
 {
@@ -199,7 +253,6 @@ else
 @code {
     private MudDataGrid<WaferFlatDataDto> _dataGrid = default!;
     private bool _isGridVisible = false;
-
     private List<string> _sites = new();
     private List<string> _sdwts = new();
     private List<string> _eqpids = new();
@@ -209,7 +262,6 @@ else
     private List<string> _stageRcps = new();
     private List<string> _stageGroups = new();
     private List<string> _films = new();
-
     private string? _selectedSite;
     private string? _selectedSdwt;
     private string? _selectedEqpid;
@@ -224,58 +276,107 @@ else
     private string? _selectedStageRcp;
     private string? _selectedStageGroup;
     private string? _selectedFilm;
-
     private WaferFlatDataDto? _selectedRowItem;
     private StatisticsDto? _statistics;
+    private PointDataResponseDto? _pointData;
+    private bool _isPointDataLoading = false;
 
     protected override async Task OnInitializedAsync() => await LoadSites();
 
-    private async Task OnRowClicked(DataGridRowClickEventArgs<WaferFlatDataDto> args)
+    private Func<WaferFlatDataDto, int, string> RowStyleFunc => (item, index) =>
     {
-        _selectedRowItem = args.Item;
-        await LoadStatistics(_selectedRowItem);
+        if (_selectedRowItem != null && _selectedRowItem.Equals(item))
+        {
+            return "background-color: #E3F2FD; color: var(--mud-palette-text-primary);";
+        }
+        return string.Empty;
+    };
+
+    private async Task OnSelectedItemChanged(WaferFlatDataDto item)
+    {
+        _selectedRowItem = item;
+        await LoadRowDetails(item);
     }
 
-    private void OnSelectedItemChanged(WaferFlatDataDto item)
+    private async Task LoadRowDetails(WaferFlatDataDto? item)
     {
-        // This is needed for the selection highlight to work
-    }
-
-    private async Task LoadStatistics(WaferFlatDataDto item)
-    {
-        if (item?.LotId == null || item.WaferId == null || item.DateTime == null || item.CassetteRcp == null || item.StageRcp == null || item.StageGroup == null || item.Film == null)
+        if (item?.LotId == null || item.WaferId == null || item.ServTs == null || item.DateTime == null || item.CassetteRcp == null || item.StageRcp == null || item.StageGroup == null || item.Film == null)
         {
             _statistics = null;
+            _pointData = null;
+            StateHasChanged();
             return;
         }
+        
+        _statistics = null;
+        _pointData = null;
+        _isPointDataLoading = true;
+        StateHasChanged();
 
         var client = HttpClientFactory.CreateClient("ITM.Dashboard.Api");
-        var query = new List<string>
+        var queryParams = new List<string>
         {
             $"lotId={Uri.EscapeDataString(item.LotId)}",
             $"waferId={item.WaferId}",
-            $"dateTime={item.DateTime:yyyy-MM-dd HH:mm:ss}",
+            $"servTs={item.ServTs.Value:o}",
+            $"dateTime={item.DateTime.Value:o}",
             $"cassetteRcp={Uri.EscapeDataString(item.CassetteRcp)}",
             $"stageRcp={Uri.EscapeDataString(item.StageRcp)}",
             $"stageGroup={Uri.EscapeDataString(item.StageGroup)}",
             $"film={Uri.EscapeDataString(item.Film)}"
         };
-
-        var url = $"api/Statistics?{string.Join("&", query)}";
+        var queryString = string.Join("&", queryParams);
 
         try
         {
-            _statistics = await client.GetFromJsonAsync<StatisticsDto>(url);
+            var statsTask = client.GetFromJsonAsync<StatisticsDto>($"api/Statistics?{queryString}");
+            var pointDataTask = client.GetFromJsonAsync<PointDataResponseDto>($"api/WaferData/pointdata?{queryString}");
+
+            await Task.WhenAll(statsTask, pointDataTask);
+
+            _statistics = await statsTask;
+            _pointData = await pointDataTask;
         }
         catch (Exception ex)
         {
-            Console.WriteLine($"통계 데이터를 가져오는 중 오류 발생: {ex.Message}");
+            Console.WriteLine($"Error fetching details: {ex.Message}");
             _statistics = null;
+            _pointData = null;
+        }
+        finally
+        {
+            _isPointDataLoading = false;
+            StateHasChanged();
+        }
+    }
+
+    private string FormatValue(object value)
+    {
+        if (value is JsonElement jsonElement)
+        {
+            if (jsonElement.ValueKind == JsonValueKind.Number)
+            {
+                if (jsonElement.TryGetInt64(out long longValue) && jsonElement.GetRawText().IndexOf('.') == -1)
+                {
+                    return longValue.ToString();
+                }
+                if (jsonElement.TryGetDouble(out double doubleValue))
+                {
+                    return doubleValue.ToString(CultureInfo.InvariantCulture);
+                }
+            }
+            return jsonElement.ToString();
         }
 
-        StateHasChanged();
+        if (value is int || value is long || value is short || value is byte ||
+            value is double || value is float || value is decimal)
+        {
+            return Convert.ToString(value, CultureInfo.InvariantCulture);
+        }
+        
+        return value?.ToString() ?? string.Empty;
     }
-    
+
     private string BuildFilterQuery()
     {
         var queryBuilder = new StringBuilder();
@@ -351,14 +452,15 @@ else
         _selectedEqpid = newEqpid;
         ResetDependentFilters("eqpid");
         _isGridVisible = !string.IsNullOrEmpty(_selectedEqpid);
-
+        _selectedRowItem = null; 
+        _statistics = null;
+        _pointData = null;
         if (_isGridVisible)
         {
             await InitializeDateFilters(_selectedEqpid);
             await UpdateAllFilters();
             if (_dataGrid is not null) await _dataGrid.ReloadServerData();
         }
-        _statistics = null;
     }
 
     private async Task OnLotIdChanged(string newLotId)
@@ -432,8 +534,10 @@ else
     {
         if (_dataGrid is not null)
         {
-            await _dataGrid.ReloadServerData();
+            _selectedRowItem = null;
             _statistics = null;
+            _pointData = null;
+            await _dataGrid.ReloadServerData();
         }
     }
 
@@ -466,7 +570,6 @@ else
         _selectedStageRcp = null;
         _selectedStageGroup = null;
         _selectedFilm = null;
-        
         _sdwts.Clear();
         _eqpids.Clear();
         _lotIds.Clear();
@@ -475,10 +578,10 @@ else
         _stageRcps.Clear();
         _stageGroups.Clear();
         _films.Clear();
-        
         _isGridVisible = false;
+        _selectedRowItem = null;
         _statistics = null;
-
+        _pointData = null;
         if (_dataGrid is not null)
         {
             await _dataGrid.ReloadServerData();
