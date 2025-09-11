@@ -34,7 +34,7 @@ namespace ITM.Dashboard.Api.Controllers
             var connectionString = dbInfo.GetConnectionString();
             await using var conn = new NpgsqlConnection(connectionString);
             await conn.OpenAsync();
-            
+
             var sql = @"
                 SELECT * FROM public.plg_wf_flat
                 WHERE lotid = @lotId AND waferid = @waferId AND serv_ts = @servTs AND datetime = @dateTime
@@ -69,7 +69,7 @@ namespace ITM.Dashboard.Api.Controllers
                 }
                 allRows.Add(row);
             }
-            
+
             _logger.LogInformation("Initially fetched {count} rows for Point Data for LotId={lotId}", allRows.Count, lotId);
 
             // 2. NULL이 아닌 값을 가진 컬럼만 동적으로 필터링합니다.
@@ -108,7 +108,7 @@ namespace ITM.Dashboard.Api.Controllers
 
             return Ok(response);
         }
-        
+
         // GetWaferFlatDataPaged 메서드는 변경할 필요 없습니다.
         [HttpGet("flatdata")]
         public async Task<ActionResult> GetWaferFlatDataPaged(
