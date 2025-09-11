@@ -156,7 +156,7 @@ public class FiltersController : ControllerBase
     public Task<ActionResult<IEnumerable<string>>> GetFilms(string eqpid) => GetDistinctColumnValues("film", eqpid);
 
     [HttpGet("lotids/{eqpid}")]
-public async Task<ActionResult<IEnumerable<string>>> GetLotIds(
+    public async Task<ActionResult<IEnumerable<string>>> GetLotIds(
     string eqpid,
     [FromQuery] DateTime? startDate,
     [FromQuery] DateTime? endDate)
@@ -165,9 +165,9 @@ public async Task<ActionResult<IEnumerable<string>>> GetLotIds(
         var dbInfo = DatabaseInfo.CreateDefault();
         await using var conn = new NpgsqlConnection(dbInfo.GetConnectionString());
         await conn.OpenAsync();
-    
+
         var sqlBuilder = new StringBuilder("SELECT DISTINCT lotid FROM public.plg_wf_flat WHERE eqpid = @eqpid AND lotid IS NOT NULL ");
-        
+
         if (startDate.HasValue)
         {
             sqlBuilder.Append("AND datetime >= @startDate ");
@@ -177,9 +177,9 @@ public async Task<ActionResult<IEnumerable<string>>> GetLotIds(
             // endDate의 자정까지 포함하기 위해 1일을 더하고 1틱을 뺍니다.
             sqlBuilder.Append("AND datetime <= @endDate ");
         }
-    
+
         sqlBuilder.Append("ORDER BY lotid;");
-    
+
         await using var cmd = new NpgsqlCommand(sqlBuilder.ToString(), conn);
         cmd.Parameters.AddWithValue("eqpid", eqpid);
         if (startDate.HasValue)
@@ -190,7 +190,7 @@ public async Task<ActionResult<IEnumerable<string>>> GetLotIds(
         {
             cmd.Parameters.AddWithValue("endDate", endDate.Value.AddDays(1).AddTicks(-1));
         }
-    
+
         await using var reader = await cmd.ExecuteReaderAsync();
         while (await reader.ReadAsync())
         {
