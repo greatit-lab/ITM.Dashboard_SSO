@@ -7,70 +7,75 @@
 
 <MudText Typo="Typo.h4" GutterBottom="true">Wafer Flat Data</MudText>
 
+<MudText Typo="Typo.h4" GutterBottom="true">Wafer Flat Data</MudText>
+
 <MudPaper Class="pa-4 mb-4">
-    <MudGrid Spacing="2">
-        <MudItem xs="12" sm="4" md="2">
-            <MudSelect T="string" Label="Site" Required="true" Value="_selectedSite" ValueChanged="OnSiteChanged">
+    <MudGrid Spacing="2" AlignItems="AlignItems.Center">
+        <MudItem xs="6" sm="2" md="1">
+            <MudSelect T="string" Label="Site" Required="true" Value="_selectedSite" ValueChanged="OnSiteChanged" Dense="true" Margin="Margin.Dense">
                 @foreach (var site in _sites) { <MudSelectItem T="string" Value="@site">@site</MudSelectItem> }
             </MudSelect>
         </MudItem>
-        <MudItem xs="12" sm="4" md="2">
-            <MudSelect T="string" Label="SDWT" Value="_selectedSdwt" ValueChanged="OnSdwtChanged" Disabled="@(string.IsNullOrEmpty(_selectedSite))">
+        <MudItem xs="6" sm="2" md="1">
+            <MudSelect T="string" Label="SDWT" Value="_selectedSdwt" ValueChanged="OnSdwtChanged" Disabled="@(string.IsNullOrEmpty(_selectedSite))" Dense="true" Margin="Margin.Dense">
                 @foreach (var sdwt in _sdwts) { <MudSelectItem T="string" Value="@sdwt">@sdwt</MudSelectItem> }
             </MudSelect>
         </MudItem>
-        <MudItem xs="12" sm="4" md="2">
+        <MudItem xs="12" sm="4" md="1">
             <MudAutocomplete T="string" Label="EQP ID" Value="_selectedEqpid" ValueChanged="OnEqpidChanged" SearchFunc="SearchEqpids"
-                             ResetValueOnEmptyText="true" CoerceText="false" CoerceValue="false"
+                             ResetValueOnEmptyText="true" CoerceText="false" CoerceValue="false" Dense="true" Margin="Margin.Dense"
                              Disabled="@(string.IsNullOrEmpty(_selectedSdwt))" />
         </MudItem>
-        <MudItem xs="12" sm="4" md="2">
+        <MudItem xs="12" sm="4" md="1">
             <MudAutocomplete T="string" Label="Lot ID" Value="_selectedLotId" ValueChanged="OnLotIdChanged" SearchFunc="SearchLotIds"
-                             MaxItems="null" ResetValueOnEmptyText="true" CoerceText="false" CoerceValue="false"
+                             MaxItems="null" ResetValueOnEmptyText="true" CoerceText="false" CoerceValue="false" Dense="true" Margin="Margin.Dense"
                              Disabled="@(string.IsNullOrEmpty(_selectedEqpid))" />
         </MudItem>
-        <MudItem xs="12" sm="4" md="2">
+        <MudItem xs="12" sm="4" md="1">
             <MudAutocomplete T="string" Label="Wafer ID" @bind-Value="_selectedWaferId" SearchFunc="SearchWaferIds"
-                             ResetValueOnEmptyText="true" CoerceText="false" CoerceValue="false"
+                             ResetValueOnEmptyText="true" CoerceText="false" CoerceValue="false" Dense="true" Margin="Margin.Dense"
                              Disabled="@(string.IsNullOrEmpty(_selectedLotId))" />
         </MudItem>
-    </MudGrid>
-    <MudGrid Spacing="2" Class="mt-2">
-        <MudItem xs="12" sm="6" md="3">
+        <MudItem xs="6" sm="3" md="2">
             <MudDatePicker Label="Start Date" Value="_startDate" DateChanged="OnStartDateChanged"
-                           MinDate="_minSelectableDate" MaxDate="_maxSelectableDate"
+                           MinDate="_minSelectableDate" MaxDate="_maxSelectableDate" Dense="true" Margin="Margin.Dense"
                            Disabled="@(string.IsNullOrEmpty(_selectedEqpid))" />
         </MudItem>
-        <MudItem xs="12" sm="6" md="3">
+        <MudItem xs="6" sm="3" md="2">
             <MudDatePicker Label="End Date" Value="_endDate" DateChanged="OnEndDateChanged"
-                           MinDate="_minSelectableDate" MaxDate="_maxSelectableDate"
+                           MinDate="_minSelectableDate" MaxDate="_maxSelectableDate" Dense="true" Margin="Margin.Dense"
                            Disabled="@(string.IsNullOrEmpty(_selectedEqpid))" />
         </MudItem>
-        <MudItem xs="12" Class="d-flex justify-end gap-2 align-center">
-            <MudButton Variant="Variant.Text" OnClick="@(() => _showAdvancedFilters = !_showAdvancedFilters)">상세 조건 검색</MudButton>
-            <MudButton Variant="Variant.Filled" Color="Color.Primary" OnClick="SearchData" Disabled="@(string.IsNullOrEmpty(_selectedSite))">Search</MudButton>
-            <MudButton Variant="Variant.Outlined" OnClick="ResetFilters">Reset</MudButton>
+        <MudItem xs="4" sm="2" md="1">
+            <MudButton Variant="Variant.Filled" Color="Color.Primary" OnClick="SearchData" Disabled="@(string.IsNullOrEmpty(_selectedSite))" FullWidth="true">Search</MudButton>
+        </MudItem>
+        <MudItem xs="4" sm="2" md="1">
+            <MudButton Variant="Variant.Outlined" OnClick="ResetFilters" FullWidth="true">Reset</MudButton>
+        </MudItem>
+        <MudItem xs="4" sm="2" md="1">
+            <MudButton Variant="Variant.Text" OnClick="@(() => _showAdvancedFilters = !_showAdvancedFilters)" FullWidth="true">상세 조건</MudButton>
         </MudItem>
     </MudGrid>
-    <MudCollapse Expanded="_showAdvancedFilters">
-        <MudGrid Spacing="2" Class="mt-2">
+
+    <MudCollapse Expanded="_showAdvancedFilters" Class="mt-2">
+        <MudGrid Spacing="2" AlignItems="AlignItems.Center">
             <MudItem xs="12" sm="6" md="3">
-                <MudSelect T="string" Label="Cassette RCP" @bind-Value="_selectedCassetteRcp" Disabled="@(string.IsNullOrEmpty(_selectedEqpid))" Clearable="true">
+                <MudSelect T="string" Label="Cassette RCP" @bind-Value="_selectedCassetteRcp" Disabled="@(string.IsNullOrEmpty(_selectedEqpid))" Clearable="true" Dense="true" Margin="Margin.Dense">
                     @foreach (var item in _cassetteRcps) { <MudSelectItem T="string" Value="@item">@item</MudSelectItem> }
                 </MudSelect>
             </MudItem>
             <MudItem xs="12" sm="6" md="3">
-                <MudSelect T="string" Label="Stage RCP" @bind-Value="_selectedStageRcp" Disabled="@(string.IsNullOrEmpty(_selectedEqpid))" Clearable="true">
+                <MudSelect T="string" Label="Stage RCP" @bind-Value="_selectedStageRcp" Disabled="@(string.IsNullOrEmpty(_selectedEqpid))" Clearable="true" Dense="true" Margin="Margin.Dense">
                     @foreach (var item in _stageRcps) { <MudSelectItem T="string" Value="@item">@item</MudSelectItem> }
                 </MudSelect>
             </MudItem>
             <MudItem xs="12" sm="6" md="3">
-                <MudSelect T="string" Label="Stage Group" @bind-Value="_selectedStageGroup" Disabled="@(string.IsNullOrEmpty(_selectedEqpid))" Clearable="true">
+                <MudSelect T="string" Label="Stage Group" @bind-Value="_selectedStageGroup" Disabled="@(string.IsNullOrEmpty(_selectedEqpid))" Clearable="true" Dense="true" Margin="Margin.Dense">
                     @foreach (var item in _stageGroups) { <MudSelectItem T="string" Value="@item">@item</MudSelectItem> }
                 </MudSelect>
             </MudItem>
             <MudItem xs="12" sm="6" md="3">
-                <MudSelect T="string" Label="Film" @bind-Value="_selectedFilm" Disabled="@(string.IsNullOrEmpty(_selectedEqpid))" Clearable="true">
+                <MudSelect T="string" Label="Film" @bind-Value="_selectedFilm" Disabled="@(string.IsNullOrEmpty(_selectedEqpid))" Clearable="true" Dense="true" Margin="Margin.Dense">
                     @foreach (var item in _films) { <MudSelectItem T="string" Value="@item">@item</MudSelectItem> }
                 </MudSelect>
             </MudItem>
@@ -242,14 +247,13 @@ else
 
         _lotIds = await client.GetFromJsonAsync<List<string>>(url) ?? new();
 
-        // 날짜 변경으로 Lot ID 목록이 바뀌었을 때, 기존 선택값이 더 이상 유효하지 않으면 초기화합니다.
         if (!string.IsNullOrEmpty(_selectedLotId) && !_lotIds.Contains(_selectedLotId))
         {
             _selectedLotId = null;
-            ResetDependentFilters("lotid"); // Wafer ID 목록도 함께 초기화합니다.
+            ResetDependentFilters("lotid");
         }
 
-        StateHasChanged(); // UI를 즉시 새로고침합니다.
+        StateHasChanged();
     }
 
     private async Task LoadWaferIds(string eqpid, string lotid)
@@ -310,7 +314,8 @@ else
         }
         if (level == "site" || level == "sdwt" || level == "eqpid" || level == "lotid")
         {
-            _selectedWaferId = null; _waferIds.Clear();
+            _selectedWaferId = null;
+            _waferIds.Clear();
         }
     }
 
