@@ -81,7 +81,7 @@
             </MudItem>
             <MudItem xs="12" sm="6" md="3">
                 <MudSelect T="string" Label="Stage RCP"
-                           @bind-Value="_selectedStageRcp"
+                           Value="_selectedStageRcp" ValueChanged="(string val) => OnAdvancedFilterChanged(val, nameof(_selectedStageRcp))"
                            Disabled="@(string.IsNullOrEmpty(_selectedEqpid))" Clearable="true" Dense="true" Margin="Margin.Dense">
                     @foreach (var item in _stageRcps) { <MudSelectItem T="string" Value="@item">@item</MudSelectItem> }
                 </MudSelect>
