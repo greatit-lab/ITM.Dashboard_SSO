@@ -2,6 +2,17 @@
 @using ITM.Dashboard.Web.Client.Models
 @inject IHttpClientFactory HttpClientFactory
 @using System.Text.Json
+@using System.Globalization
+@using System.Text
+
+<style>
+    .compact-grid th,
+    .compact-grid td {
+        padding: 4px 10px !important;
+        font-size: 0.8rem !important;
+        line-height: 1.4 !important;
+    }
+</style>
 
 <PageTitle>Wafer Flat Data</PageTitle>
 
@@ -30,17 +41,19 @@
                              Disabled="@(string.IsNullOrEmpty(_selectedEqpid))" />
         </MudItem>
         <MudItem xs="12" sm="4" md="1">
-            <MudAutocomplete T="string" Label="Wafer ID" @bind-Value="_selectedWaferId" SearchFunc="SearchWaferIds"
+            <MudAutocomplete T="string" Label="Wafer ID" 
+                             Value="_selectedWaferId" ValueChanged="OnWaferIdChanged" 
+                             SearchFunc="SearchWaferIds"
                              ResetValueOnEmptyText="true" CoerceText="false" CoerceValue="false" Dense="true" Margin="Margin.Dense"
                              Disabled="@(string.IsNullOrEmpty(_selectedLotId))" />
         </MudItem>
         <MudItem xs="6" sm="3" md="2">
-            <MudDatePicker Label="Start Date" Value="_startDate" DateChanged="OnStartDateChanged"
+            <MudDatePicker Label="Start Date" Value="_startDate" DateChanged="OnDateFilterChanged"
                            MinDate="_minSelectableDate" MaxDate="_maxSelectableDate" Dense="true" Margin="Margin.Dense"
                            Disabled="@(string.IsNullOrEmpty(_selectedEqpid))" />
         </MudItem>
         <MudItem xs="6" sm="3" md="2">
-            <MudDatePicker Label="End Date" Value="_endDate" DateChanged="OnEndDateChanged"
+            <MudDatePicker Label="End Date" Value="_endDate" DateChanged="OnDateFilterChanged"
                            MinDate="_minSelectableDate" MaxDate="_maxSelectableDate" Dense="true" Margin="Margin.Dense"
                            Disabled="@(string.IsNullOrEmpty(_selectedEqpid))" />
         </MudItem>
@@ -51,29 +64,40 @@
             <MudButton Variant="Variant.Outlined" OnClick="ResetFilters" FullWidth="true">Reset</MudButton>
         </MudItem>
         <MudItem xs="4" sm="2" md="1">
-            <MudButton Variant="Variant.Text" OnClick="@(() => _showAdvancedFilters = !_showAdvancedFilters)" FullWidth="true">상세 조건</MudButton>
+            <MudButton Variant="Variant.Text" OnClick="@(() => _showAdvancedFilters = !_showAdvancedFilters)" FullWidth="true">
+                @(_showAdvancedFilters ? "상세조건 닫기" : "상세조건 열기")
+            </MudButton>
         </MudItem>
     </MudGrid>
 
     <MudCollapse Expanded="_showAdvancedFilters" Class="mt-2">
         <MudGrid Spacing="2" AlignItems="AlignItems.Center">
+            @* ▼▼▼ [수정] @bind-Value를 Value와 ValueChanged로 분리합니다. ▼▼▼ *@
             <MudItem xs="12" sm="6" md="3">
-                <MudSelect T="string" Label="Cassette RCP" @bind-Value="_selectedCassetteRcp" Disabled="@(string.IsNullOrEmpty(_selectedEqpid))" Clearable="true" Dense="true" Margin="Margin.Dense">
+                <MudSelect T="string" Label="Cassette RCP" 
+                           Value="_selectedCassetteRcp" ValueChanged="(string val) => OnAdvancedFilterChanged(val, nameof(_selectedCassetteRcp))"
+                           Disabled="@(string.IsNullOrEmpty(_selectedEqpid))" Clearable="true" Dense="true" Margin="Margin.Dense">
                     @foreach (var item in _cassetteRcps) { <MudSelectItem T="string" Value="@item">@item</MudSelectItem> }
                 </MudSelect>
             </MudItem>
             <MudItem xs="12" sm="6" md="3">
-                <MudSelect T="string" Label="Stage RCP" @bind-Value="_selectedStageRcp" Disabled="@(string.IsNullOrEmpty(_selectedEqpid))" Clearable="true" Dense="true" Margin="Margin.Dense">
+                <MudSelect T="string" Label="Stage RCP"
+                           Value="_selectedStageRcp" ValueChanged="(string val) => OnAdvancedFilterChanged(val, nameof(_selectedStageRcp))"
+                           Disabled="@(string.IsNullOrEmpty(_selectedEqpid))" Clearable="true" Dense="true" Margin="Margin.Dense">
                     @foreach (var item in _stageRcps) { <MudSelectItem T="string" Value="@item">@item</MudSelectItem> }
                 </MudSelect>
             </MudItem>
             <MudItem xs="12" sm="6" md="3">
-                <MudSelect T="string" Label="Stage Group" @bind-Value="_selectedStageGroup" Disabled="@(string.IsNullOrEmpty(_selectedEqpid))" Clearable="true" Dense="true" Margin="Margin.Dense">
+                <MudSelect T="string" Label="Stage Group"
+                           Value="_selectedStageGroup" ValueChanged="(string val) => OnAdvancedFilterChanged(val, nameof(_selectedStageGroup))"
+                           Disabled="@(string.IsNullOrEmpty(_selectedEqpid))" Clearable="true" Dense="true" Margin="Margin.Dense">
                     @foreach (var item in _stageGroups) { <MudSelectItem T="string" Value="@item">@item</MudSelectItem> }
                 </MudSelect>
             </MudItem>
             <MudItem xs="12" sm="6" md="3">
-                <MudSelect T="string" Label="Film" @bind-Value="_selectedFilm" Disabled="@(string.IsNullOrEmpty(_selectedEqpid))" Clearable="true" Dense="true" Margin="Margin.Dense">
+                <MudSelect T="string" Label="Film"
+                           Value="_selectedFilm" ValueChanged="(string val) => OnAdvancedFilterChanged(val, nameof(_selectedFilm))"
+                           Disabled="@(string.IsNullOrEmpty(_selectedEqpid))" Clearable="true" Dense="true" Margin="Margin.Dense">
                     @foreach (var item in _films) { <MudSelectItem T="string" Value="@item">@item</MudSelectItem> }
                 </MudSelect>
             </MudItem>
@@ -83,7 +107,10 @@
 
 @if (_isGridVisible)
 {
-    <MudDataGrid @ref="_dataGrid" T="WaferFlatDataDto" ServerData="LoadData" Striped="true" Hover="true" Dense="true">
+    <MudText Typo="Typo.h6" GutterBottom="true" Class="mt-4">Data Results</MudText>
+
+    <MudDataGrid @ref="_dataGrid" T="WaferFlatDataDto" ServerData="LoadData" Striped="true" Hover="true" Dense="true" Class="compact-grid"
+                 RowClick="OnRowClicked" SelectedItemChanged="OnSelectedItemChanged" RowsPerPage="8">
         <Columns>
             <PropertyColumn Property="x => x.DateTime" Title="Date Time" Format="yyyy-MM-dd HH:mm:ss" />
             <PropertyColumn Property="x => x.LotId" Title="Lot ID" />
@@ -97,6 +124,73 @@
             <MudDataGridPager T="WaferFlatDataDto" />
         </PagerContent>
     </MudDataGrid>
+
+    @if (_statistics != null)
+    {
+        <MudText Typo="Typo.h6" GutterBottom="true" Class="mt-6">Statistics</MudText>
+        <MudSimpleTable Dense="true" Hover="true" Class="compact-grid">
+            <thead>
+                <tr>
+                    <th>Statistics</th>
+                    <th style="text-align: right;">T1(Å)</th>
+                    <th style="text-align: right;">GOF</th>
+                    <th style="text-align: right;">Z(㎛)</th>
+                    <th style="text-align: right;">SRVISZ(㎛)</th>
+                </tr>
+            </thead>
+            <tbody>
+                <tr>
+                    <td>Max</td>
+                    <td style="text-align: right;">@_statistics.T1.Max.ToString("F3")</td>
+                    <td style="text-align: right;">@_statistics.Gof.Max.ToString("F4")</td>
+                    <td style="text-align: right;">@_statistics.Z.Max.ToString("F4")</td>
+                    <td style="text-align: right;">@_statistics.Srvisz.Max.ToString("F4")</td>
+                </tr>
+                <tr>
+                    <td>Min</td>
+                    <td style="text-align: right;">@_statistics.T1.Min.ToString("F3")</td>
+                    <td style="text-align: right;">@_statistics.Gof.Min.ToString("F4")</td>
+                    <td style="text-align: right;">@_statistics.Z.Min.ToString("F4")</td>
+                    <td style="text-align: right;">@_statistics.Srvisz.Min.ToString("F4")</td>
+                </tr>
+                <tr>
+                    <td>Range</td>
+                    <td style="text-align: right;">@_statistics.T1.Range.ToString("F3")</td>
+                    <td style="text-align: right;">@_statistics.Gof.Range.ToString("F4")</td>
+                    <td style="text-align: right;">@_statistics.Z.Range.ToString("F4")</td>
+                    <td style="text-align: right;">@_statistics.Srvisz.Range.ToString("F4")</td>
+                </tr>
+                <tr>
+                    <td>Mean</td>
+                    <td style="text-align: right;">@_statistics.T1.Mean.ToString("F3")</td>
+                    <td style="text-align: right;">@_statistics.Gof.Mean.ToString("F4")</td>
+                    <td style="text-align: right;">@_statistics.Z.Mean.ToString("F4")</td>
+                    <td style="text-align: right;">@_statistics.Srvisz.Mean.ToString("F4")</td>
+                </tr>
+                <tr>
+                    <td>StdD</td>
+                    <td style="text-align: right;">@_statistics.T1.StdDev.ToString("F3")</td>
+                    <td style="text-align: right;">@_statistics.Gof.StdDev.ToString("F4")</td>
+                    <td style="text-align: right;">@_statistics.Z.StdDev.ToString("F4")</td>
+                    <td style="text-align: right;">@_statistics.Srvisz.StdDev.ToString("F4")</td>
+                </tr>
+                <tr>
+                    <td>%StdD</td>
+                    <td style="text-align: right;">@_statistics.T1.PercentStdDev.ToString("F3")</td>
+                    <td style="text-align: right;">@_statistics.Gof.PercentStdDev.ToString("F4")</td>
+                    <td style="text-align: right;">@_statistics.Z.PercentStdDev.ToString("F4")</td>
+                    <td style="text-align: right;">@_statistics.Srvisz.PercentStdDev.ToString("F4")</td>
+                </tr>
+                <tr>
+                    <td>%NonU</td>
+                    <td style="text-align: right;">@_statistics.T1.PercentNonU.ToString("F3")</td>
+                    <td style="text-align: right;">@_statistics.Gof.PercentNonU.ToString("F4")</td>
+                    <td style="text-align: right;">@_statistics.Z.PercentNonU.ToString("F4")</td>
+                    <td style="text-align: right;">@_statistics.Srvisz.PercentNonU.ToString("F4")</td>
+                </tr>
+            </tbody>
+        </MudSimpleTable>
+    }
 }
 else
 {
@@ -133,7 +227,98 @@ else
     private string? _selectedStageGroup;
     private string? _selectedFilm;
 
+    private WaferFlatDataDto? _selectedRowItem;
+    private StatisticsDto? _statistics;
+
     protected override async Task OnInitializedAsync() => await LoadSites();
+
+    private async Task OnRowClicked(DataGridRowClickEventArgs<WaferFlatDataDto> args)
+    {
+        _selectedRowItem = args.Item;
+        await LoadStatistics(_selectedRowItem);
+    }
+
+    private void OnSelectedItemChanged(WaferFlatDataDto item)
+    {
+        // This is needed for the selection highlight to work
+    }
+
+    private async Task LoadStatistics(WaferFlatDataDto item)
+    {
+        if (item?.LotId == null || item.WaferId == null || item.DateTime == null || item.CassetteRcp == null || item.StageRcp == null || item.StageGroup == null || item.Film == null)
+        {
+            _statistics = null;
+            return;
+        }
+
+        var client = HttpClientFactory.CreateClient("ITM.Dashboard.Api");
+        var query = new List<string>
+        {
+            $"lotId={Uri.EscapeDataString(item.LotId)}",
+            $"waferId={item.WaferId}",
+            $"dateTime={item.DateTime:yyyy-MM-dd HH:mm:ss}",
+            $"cassetteRcp={Uri.EscapeDataString(item.CassetteRcp)}",
+            $"stageRcp={Uri.EscapeDataString(item.StageRcp)}",
+            $"stageGroup={Uri.EscapeDataString(item.StageGroup)}",
+            $"film={Uri.EscapeDataString(item.Film)}"
+        };
+
+        var url = $"api/Statistics?{string.Join("&", query)}";
+
+        try
+        {
+            _statistics = await client.GetFromJsonAsync<StatisticsDto>(url);
+        }
+        catch (Exception ex)
+        {
+            Console.WriteLine($"통계 데이터를 가져오는 중 오류 발생: {ex.Message}");
+            _statistics = null;
+        }
+
+        StateHasChanged();
+    }
+    
+    private string BuildFilterQuery()
+    {
+        var queryBuilder = new StringBuilder();
+        if (string.IsNullOrEmpty(_selectedEqpid)) return string.Empty;
+
+        queryBuilder.Append($"eqpid={Uri.EscapeDataString(_selectedEqpid)}");
+
+        if (_startDate.HasValue) queryBuilder.Append($"&startDate={_startDate.Value:yyyy-MM-dd}");
+        if (_endDate.HasValue) queryBuilder.Append($"&endDate={_endDate.Value:yyyy-MM-dd}");
+        if (!string.IsNullOrEmpty(_selectedLotId)) queryBuilder.Append($"&lotId={Uri.EscapeDataString(_selectedLotId)}");
+        if (int.TryParse(_selectedWaferId, out var waferId)) queryBuilder.Append($"&waferId={waferId}");
+        if (!string.IsNullOrEmpty(_selectedCassetteRcp)) queryBuilder.Append($"&cassetteRcp={Uri.EscapeDataString(_selectedCassetteRcp)}");
+        if (!string.IsNullOrEmpty(_selectedStageRcp)) queryBuilder.Append($"&stageRcp={Uri.EscapeDataString(_selectedStageRcp)}");
+        if (!string.IsNullOrEmpty(_selectedStageGroup)) queryBuilder.Append($"&stageGroup={Uri.EscapeDataString(_selectedStageGroup)}");
+        if (!string.IsNullOrEmpty(_selectedFilm)) queryBuilder.Append($"&film={Uri.EscapeDataString(_selectedFilm)}");
+
+        return queryBuilder.ToString();
+    }
+
+    private async Task UpdateAllFilters()
+    {
+        if (string.IsNullOrEmpty(_selectedEqpid)) return;
+        var client = HttpClientFactory.CreateClient("ITM.Dashboard.Api");
+        var query = BuildFilterQuery();
+        
+        _lotIds = await client.GetFromJsonAsync<List<string>>($"api/Filters/lotids?{query}") ?? new();
+        _waferIds = await client.GetFromJsonAsync<List<string>>($"api/Filters/waferids?{query}") ?? new();
+        _cassetteRcps = await client.GetFromJsonAsync<List<string>>($"api/Filters/cassettercps?{query}") ?? new();
+        _stageRcps = await client.GetFromJsonAsync<List<string>>($"api/Filters/stagercps?{query}") ?? new();
+        _stageGroups = await client.GetFromJsonAsync<List<string>>($"api/Filters/stagegroups?{query}") ?? new();
+        _films = await client.GetFromJsonAsync<List<string>>($"api/Filters/films?{query}") ?? new();
+        
+        if (!string.IsNullOrEmpty(_selectedLotId) && !_lotIds.Contains(_selectedLotId)) _selectedLotId = null;
+        if (!string.IsNullOrEmpty(_selectedWaferId) && !_waferIds.Contains(_selectedWaferId)) _selectedWaferId = null;
+        if (!string.IsNullOrEmpty(_selectedCassetteRcp) && !_cassetteRcps.Contains(_selectedCassetteRcp)) _selectedCassetteRcp = null;
+        if (!string.IsNullOrEmpty(_selectedStageRcp) && !_stageRcps.Contains(_selectedStageRcp)) _selectedStageRcp = null;
+        if (!string.IsNullOrEmpty(_selectedStageGroup) && !_stageGroups.Contains(_selectedStageGroup)) _selectedStageGroup = null;
+        if (!string.IsNullOrEmpty(_selectedFilm) && !_films.Contains(_selectedFilm)) _selectedFilm = null;
+        
+        StateHasChanged();
+    }
 
     private async Task LoadSites()
     {
@@ -169,16 +354,13 @@ else
         ResetDependentFilters("eqpid");
         _isGridVisible = !string.IsNullOrEmpty(_selectedEqpid);
 
-        if (_isGridVisible && _selectedEqpid is not null)
+        if (_isGridVisible)
         {
-            await LoadAdvancedFilterOptions(_selectedEqpid);
             await InitializeDateFilters(_selectedEqpid);
-            await LoadLotIds();
-            if (_dataGrid is not null)
-            {
-                await _dataGrid.ReloadServerData();
-            }
+            await UpdateAllFilters();
+            if (_dataGrid is not null) await _dataGrid.ReloadServerData();
         }
+        _statistics = null;
     }
 
     private async Task OnLotIdChanged(string newLotId)
