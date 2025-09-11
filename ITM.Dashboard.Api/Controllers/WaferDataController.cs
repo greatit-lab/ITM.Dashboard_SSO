@@ -115,10 +115,10 @@ namespace ITM.Dashboard.Api.Controllers
             [FromQuery] int page = 0, [FromQuery] int pageSize = 20, [FromQuery] string? eqpid = null,
             [FromQuery] string? lotid = null, [FromQuery] int? waferid = null, [FromQuery] DateTime? startDate = null,
             [FromQuery] DateTime? endDate = null, [FromQuery] string? cassettercp = null, [FromQuery] string? stagercp = null,
-            [FromQuery] string? stagegroup = null, [FromQuery] string? film = null
+            [FromQuery] string? stagegroup = null, [FromQuery] string? film = null,
+            [FromQuery] string? sortLabel = null, [FromQuery] string? sortDirection = null
             )
         {
-            // ... 기존 코드 유지 ...
             var results = new List<WaferFlatDataDto>();
             long totalItems = 0;
             var dbInfo = new DatabaseInfo();
@@ -156,6 +156,33 @@ namespace ITM.Dashboard.Api.Controllers
                 if (result != null && result != DBNull.Value) { totalItems = Convert.ToInt64(result); }
             }
 
+            var orderByClause = "ORDER BY serv_ts ASC"; // 기본 정렬
+            if (!string.IsNullOrEmpty(sortLabel))
+            {
+                // SQL Injection 방지를 위해 허용된 컬럼 목록 사용
+                var allowedSortColumns = new Dictionary<string, string>
+                {
+                    { "ServTs", "serv_ts" },
+                    { "LotId", "lotid" },
+                    { "WaferId", "waferid" },
+                    { "CassetteRcp", "cassettercp" },
+                    { "StageRcp", "stagercp" },
+                    { "StageGroup", "stagegroup" },
+                    { "Film", "film" },
+                    { "DateTime", "datetime" }
+                };
+
+                if (allowedSortColumns.TryGetValue(sortLabel, out var dbColumnName))
+                {
+                    var direction = "ASC";
+                    if ("Descending".Equals(sortDirection, StringComparison.OrdinalIgnoreCase))
+                    {
+                        direction = "DESC";
+                    }
+                    orderByClause = $"ORDER BY {dbColumnName} {direction}";
+                }
+            }
+
             var dataSql = $@"
             SELECT 
                 lotid, waferid, serv_ts, datetime, cassettercp, stagercp, stagegroup, film 
@@ -163,8 +190,7 @@ namespace ITM.Dashboard.Api.Controllers
             {whereQuery} 
             GROUP BY 
                 serv_ts, datetime, lotid, waferid, cassettercp, stagercp, stagegroup, film
-            ORDER BY 
-                serv_ts ASC 
+            {orderByClause}
             OFFSET @Offset LIMIT @PageSize;";
 
             await using var cmd = new NpgsqlCommand(dataSql, conn);
