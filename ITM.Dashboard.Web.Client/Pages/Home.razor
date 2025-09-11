@@ -120,13 +120,13 @@
             <PropertyColumn Property="x => x.Film" Title="Film" />
         </Columns>
         <PagerContent>
-            <MudDataGridPager T="WaferFlatDataDto" />
+            <MudDataGridPager T="WaferFlatDataDto" HideRowsPerPage="true" />
         </PagerContent>
     </MudDataGrid>
 
     @if (_statistics != null)
     {
-        <MudSimpleTable Dense="true" Hover="true" Class="compact-grid">
+        <MudSimpleTable Dense="true" Hover="true" Class="compact-grid" Style="max-height: 155px; overflow-y: auto;">
             <thead>
                 <tr>
                     <th>Statistics</th>
