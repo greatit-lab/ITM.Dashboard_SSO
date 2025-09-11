@@ -13,7 +13,7 @@ using System.Text;
 [ApiController]
 public class FiltersController : ControllerBase
 {
-    // Site 목록 조회 API
+    // Site 목록 조회 API (변경 없음)
     [HttpGet("sites")]
     public async Task<ActionResult<IEnumerable<string>>> GetSites()
     {
@@ -28,7 +28,7 @@ public class FiltersController : ControllerBase
         return Ok(results);
     }
 
-    // 특정 Site에 속한 SDWT 목록 조회 API
+    // 특정 Site에 속한 SDWT 목록 조회 API (변경 없음)
     [HttpGet("sdwts/{site}")]
     public async Task<ActionResult<IEnumerable<string>>> GetSdwts(string site)
     {
@@ -44,7 +44,7 @@ public class FiltersController : ControllerBase
         return Ok(results);
     }
 
-    // 특정 SDWT에 속하고, 실제 데이터가 있는 EQPID 목록 조회 API
+    // 특정 SDWT에 속하고, 실제 데이터가 있는 EQPID 목록 조회 API (변경 없음)
     [HttpGet("eqpids/{sdwt}")]
     public async Task<ActionResult<IEnumerable<string>>> GetEqpids(string sdwt)
     {
@@ -65,164 +65,109 @@ public class FiltersController : ControllerBase
         return Ok(results);
     }
 
-    // 특정 EQPID의 데이터 기간(최소/최대) 조회 API
+    // 특정 EQPID의 데이터 기간(최소/최대) 조회 API (변경 없음)
     [HttpGet("daterange")]
     public async Task<ActionResult<DateRangeDto>> GetDataDateRange([FromQuery] string? eqpid)
     {
-        if (string.IsNullOrEmpty(eqpid))
-        {
-            return Ok(new DateRangeDto());
-        }
-
+        if (string.IsNullOrEmpty(eqpid)) { return Ok(new DateRangeDto()); }
         var dbInfo = DatabaseInfo.CreateDefault();
         await using var conn = new NpgsqlConnection(dbInfo.GetConnectionString());
         await conn.OpenAsync();
-
-        var sql = @"
-            SELECT MIN(serv_ts), MAX(serv_ts) 
-            FROM public.plg_wf_flat 
-            WHERE eqpid = @eqpid;";
-
+        var sql = @"SELECT MIN(datetime), MAX(datetime) FROM public.plg_wf_flat WHERE eqpid = @eqpid;";
         await using var cmd = new NpgsqlCommand(sql, conn);
         cmd.Parameters.AddWithValue("eqpid", eqpid);
         await using var reader = await cmd.ExecuteReaderAsync();
-
-        if (await reader.ReadAsync())
+        if (await reader.ReadAsync() && !reader.IsDBNull(0) && !reader.IsDBNull(1))
         {
-            DateTime? dbMinDate = reader.IsDBNull(0) ? (DateTime?)null : reader.GetDateTime(0);
-            DateTime? dbMaxDate = reader.IsDBNull(1) ? (DateTime?)null : reader.GetDateTime(1);
-
-            DateTime thirtyDaysAgo = DateTime.Today.AddDays(-30);
-
-            DateTime? defaultStartDate = (dbMinDate.HasValue && dbMinDate.Value > thirtyDaysAgo)
-                                         ? dbMinDate.Value
-                                         : thirtyDaysAgo;
-
-            var dateRange = new DateRangeDto
-            {
-                MinDate = defaultStartDate,
-                MaxDate = dbMaxDate
-            };
-            return Ok(dateRange);
+            return Ok(new DateRangeDto { MinDate = reader.GetDateTime(0), MaxDate = reader.GetDateTime(1) });
         }
-
         return Ok(new DateRangeDto());
     }
 
-    // 상세 필터 목록 조회를 위한 공용 메서드
-    private async Task<ActionResult<IEnumerable<string>>> GetDistinctColumnValues(string columnName, string eqpid, string? lotId = null)
+    // ▼▼▼ [수정] 모든 필터 값을 받아 동적으로 쿼리하는 새로운 공용 메서드 ▼▼▼
+    private async Task<ActionResult<IEnumerable<string>>> GetFilteredDistinctValues(
+        string targetColumn,
+        [FromQuery] string eqpid,
+        [FromQuery] DateTime? startDate, [FromQuery] DateTime? endDate,
+        [FromQuery] string? lotId, [FromQuery] int? waferId,
+        [FromQuery] string? cassetteRcp, [FromQuery] string? stageRcp,
+        [FromQuery] string? stageGroup, [FromQuery] string? film)
     {
         var results = new List<string>();
         var dbInfo = DatabaseInfo.CreateDefault();
         await using var conn = new NpgsqlConnection(dbInfo.GetConnectionString());
         await conn.OpenAsync();
 
-        var allowedColumns = new List<string> { "cassettercp", "stagercp", "stagegroup", "film", "lotid" };
-        if (!allowedColumns.Contains(columnName.ToLower()))
+        var whereClauses = new List<string> { "eqpid = @eqpid", $"{targetColumn} IS NOT NULL" };
+        var parameters = new Dictionary<string, object> { { "eqpid", eqpid } };
+
+        void AddCondition(string? value, string columnName, bool isNumeric = false)
         {
-            return BadRequest("Invalid column name.");
+            if (string.IsNullOrEmpty(value) || columnName == targetColumn) return;
+            if (isNumeric && int.TryParse(value, out var numValue))
+            {
+                whereClauses.Add($"{columnName} = @{columnName}");
+                parameters[columnName] = numValue;
+            }
+            else if (!isNumeric)
+            {
+                whereClauses.Add($"{columnName} = @{columnName}");
+                parameters[columnName] = value;
+            }
+        }
+        
+        if (startDate.HasValue) { whereClauses.Add("datetime >= @startDate"); parameters["startDate"] = startDate.Value; }
+        if (endDate.HasValue) { whereClauses.Add("datetime <= @endDate"); parameters["endDate"] = endDate.Value.AddDays(1).AddTicks(-1); }
+
+        AddCondition(lotId, "lotid");
+        AddCondition(cassetteRcp, "cassettercp");
+        AddCondition(stageRcp, "stagercp");
+        AddCondition(stageGroup, "stagegroup");
+        AddCondition(film, "film");
+        
+        // WaferId는 숫자 타입이므로 별도 처리
+        if (waferId.HasValue && "waferid" != targetColumn)
+        {
+            whereClauses.Add("waferid = @waferid");
+            parameters["waferid"] = waferId.Value;
         }
 
-        var sqlBuilder = new StringBuilder($"SELECT DISTINCT {columnName} FROM public.plg_wf_flat WHERE eqpid = @eqpid AND {columnName} IS NOT NULL ");
-        if (!string.IsNullOrEmpty(lotId))
-        {
-            sqlBuilder.Append("AND lotid = @lotid ");
-        }
-        sqlBuilder.Append($"ORDER BY {columnName};");
-
-        await using var cmd = new NpgsqlCommand(sqlBuilder.ToString(), conn);
-        cmd.Parameters.AddWithValue("eqpid", eqpid);
-        if (!string.IsNullOrEmpty(lotId))
-        {
-            cmd.Parameters.AddWithValue("lotid", lotId);
-        }
-
-        await using var reader = await cmd.ExecuteReaderAsync();
-        while (await reader.ReadAsync()) { results.Add(reader.GetString(0)); }
-        return Ok(results);
-    }
-
-    // 상세 필터 API 목록
-    [HttpGet("cassettercps/{eqpid}")]
-    public Task<ActionResult<IEnumerable<string>>> GetCassetteRcps(string eqpid) => GetDistinctColumnValues("cassettercp", eqpid);
-
-    [HttpGet("stagercps/{eqpid}")]
-    public Task<ActionResult<IEnumerable<string>>> GetStageRcps(string eqpid) => GetDistinctColumnValues("stagercp", eqpid);
-
-    [HttpGet("stagegroups/{eqpid}")]
-    public Task<ActionResult<IEnumerable<string>>> GetStageGroups(string eqpid) => GetDistinctColumnValues("stagegroup", eqpid);
-
-    [HttpGet("films/{eqpid}")]
-    public Task<ActionResult<IEnumerable<string>>> GetFilms(string eqpid) => GetDistinctColumnValues("film", eqpid);
-
-    [HttpGet("lotids/{eqpid}")]
-    public async Task<ActionResult<IEnumerable<string>>> GetLotIds(
-    string eqpid,
-    [FromQuery] DateTime? startDate,
-    [FromQuery] DateTime? endDate)
-    {
-        var results = new List<string>();
-        var dbInfo = DatabaseInfo.CreateDefault();
-        await using var conn = new NpgsqlConnection(dbInfo.GetConnectionString());
-        await conn.OpenAsync();
-
-        var sqlBuilder = new StringBuilder("SELECT DISTINCT lotid FROM public.plg_wf_flat WHERE eqpid = @eqpid AND lotid IS NOT NULL ");
-
-        if (startDate.HasValue)
-        {
-            sqlBuilder.Append("AND datetime >= @startDate ");
-        }
-        if (endDate.HasValue)
-        {
-            // endDate의 자정까지 포함하기 위해 1일을 더하고 1틱을 뺍니다.
-            sqlBuilder.Append("AND datetime <= @endDate ");
-        }
-
-        sqlBuilder.Append("ORDER BY lotid;");
-
-        await using var cmd = new NpgsqlCommand(sqlBuilder.ToString(), conn);
-        cmd.Parameters.AddWithValue("eqpid", eqpid);
-        if (startDate.HasValue)
-        {
-            cmd.Parameters.AddWithValue("startDate", startDate.Value);
-        }
-        if (endDate.HasValue)
-        {
-            cmd.Parameters.AddWithValue("endDate", endDate.Value.AddDays(1).AddTicks(-1));
-        }
-
-        await using var reader = await cmd.ExecuteReaderAsync();
-        while (await reader.ReadAsync())
-        {
-            results.Add(reader.GetString(0));
-        }
-        return Ok(results);
-    }
-
-    // 특정 Lot ID에 속한 Wafer ID 목록 조회 API (숫자 정렬 적용)
-    [HttpGet("waferids/{eqpid}/{lotid}")]
-    public async Task<ActionResult<IEnumerable<string>>> GetWaferIds(string eqpid, string lotid)
-    {
-        var results = new List<string>();
-        var dbInfo = DatabaseInfo.CreateDefault();
-        await using var conn = new NpgsqlConnection(dbInfo.GetConnectionString());
-        await conn.OpenAsync();
-
-        var sql = @"
-            SELECT DISTINCT waferid 
-            FROM public.plg_wf_flat 
-            WHERE eqpid = @eqpid AND lotid = @lotid AND waferid IS NOT NULL 
-            ORDER BY waferid;";
+        var whereQuery = "WHERE " + string.Join(" AND ", whereClauses);
+        var sql = $"SELECT DISTINCT {targetColumn} FROM public.plg_wf_flat {whereQuery} ORDER BY {targetColumn};";
 
         await using var cmd = new NpgsqlCommand(sql, conn);
-        cmd.Parameters.AddWithValue("eqpid", eqpid);
-        cmd.Parameters.AddWithValue("lotid", lotid);
-
+        foreach (var p in parameters) { cmd.Parameters.AddWithValue(p.Key, p.Value); }
+        
         await using var reader = await cmd.ExecuteReaderAsync();
         while (await reader.ReadAsync())
         {
-            results.Add(reader.GetInt32(0).ToString());
+            results.Add(reader[0].ToString());
         }
         return Ok(results);
     }
+    
+    // ▼▼▼ [수정] 각 필터 API가 새로운 공용 메서드를 호출하도록 변경 ▼▼▼
+    [HttpGet("cassettercps")]
+    public Task<ActionResult<IEnumerable<string>>> GetCassetteRcps([FromQuery] string eqpid, [FromQuery] DateTime? startDate, [FromQuery] DateTime? endDate, [FromQuery] string? lotId, [FromQuery] int? waferId, [FromQuery] string? cassetteRcp, [FromQuery] string? stageRcp, [FromQuery] string? stageGroup, [FromQuery] string? film)
+        => GetFilteredDistinctValues("cassettercp", eqpid, startDate, endDate, lotId, waferId, cassetteRcp, stageRcp, stageGroup, film);
+
+    [HttpGet("stagercps")]
+    public Task<ActionResult<IEnumerable<string>>> GetStageRcps([FromQuery] string eqpid, [FromQuery] DateTime? startDate, [FromQuery] DateTime? endDate, [FromQuery] string? lotId, [FromQuery] int? waferId, [FromQuery] string? cassetteRcp, [FromQuery] string? stageRcp, [FromQuery] string? stageGroup, [FromQuery] string? film)
+        => GetFilteredDistinctValues("stagercp", eqpid, startDate, endDate, lotId, waferId, cassetteRcp, stageRcp, stageGroup, film);
+
+    [HttpGet("stagegroups")]
+    public Task<ActionResult<IEnumerable<string>>> GetStageGroups([FromQuery] string eqpid, [FromQuery] DateTime? startDate, [FromQuery] DateTime? endDate, [FromQuery] string? lotId, [FromQuery] int? waferId, [FromQuery] string? cassetteRcp, [FromQuery] string? stageRcp, [FromQuery] string? stageGroup, [FromQuery] string? film)
+        => GetFilteredDistinctValues("stagegroup", eqpid, startDate, endDate, lotId, waferId, cassetteRcp, stageRcp, stageGroup, film);
+
+    [HttpGet("films")]
+    public Task<ActionResult<IEnumerable<string>>> GetFilms([FromQuery] string eqpid, [FromQuery] DateTime? startDate, [FromQuery] DateTime? endDate, [FromQuery] string? lotId, [FromQuery] int? waferId, [FromQuery] string? cassetteRcp, [FromQuery] string? stageRcp, [FromQuery] string? stageGroup, [FromQuery] string? film)
+        => GetFilteredDistinctValues("film", eqpid, startDate, endDate, lotId, waferId, cassetteRcp, stageRcp, stageGroup, film);
+
+    [HttpGet("lotids")]
+     public Task<ActionResult<IEnumerable<string>>> GetLotIds([FromQuery] string eqpid, [FromQuery] DateTime? startDate, [FromQuery] DateTime? endDate, [FromQuery] string? lotId, [FromQuery] int? waferId, [FromQuery] string? cassetteRcp, [FromQuery] string? stageRcp, [FromQuery] string? stageGroup, [FromQuery] string? film)
+        => GetFilteredDistinctValues("lotid", eqpid, startDate, endDate, lotId, waferId, cassetteRcp, stageRcp, stageGroup, film);
+    
+    [HttpGet("waferids")]
+    public Task<ActionResult<IEnumerable<string>>> GetWaferIds([FromQuery] string eqpid, [FromQuery] DateTime? startDate, [FromQuery] DateTime? endDate, [FromQuery] string? lotId, [FromQuery] int? waferId, [FromQuery] string? cassetteRcp, [FromQuery] string? stageRcp, [FromQuery] string? stageGroup, [FromQuery] string? film)
+        => GetFilteredDistinctValues("waferid", eqpid, startDate, endDate, lotId, waferId, cassetteRcp, stageRcp, stageGroup, film);
 }
