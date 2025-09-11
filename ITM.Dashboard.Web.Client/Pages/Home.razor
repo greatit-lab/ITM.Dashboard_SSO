@@ -390,7 +390,7 @@ else
         {
             return Convert.ToString(value, CultureInfo.InvariantCulture);
         }
-        
+
         return value?.ToString() ?? string.Empty;
     }
 
@@ -418,21 +418,21 @@ else
         if (string.IsNullOrEmpty(_selectedEqpid)) return;
         var client = HttpClientFactory.CreateClient("ITM.Dashboard.Api");
         var query = BuildFilterQuery();
-        
+
         _lotIds = await client.GetFromJsonAsync<List<string>>($"api/Filters/lotids?{query}") ?? new();
         _waferIds = await client.GetFromJsonAsync<List<string>>($"api/Filters/waferids?{query}") ?? new();
         _cassetteRcps = await client.GetFromJsonAsync<List<string>>($"api/Filters/cassettercps?{query}") ?? new();
         _stageRcps = await client.GetFromJsonAsync<List<string>>($"api/Filters/stagercps?{query}") ?? new();
         _stageGroups = await client.GetFromJsonAsync<List<string>>($"api/Filters/stagegroups?{query}") ?? new();
         _films = await client.GetFromJsonAsync<List<string>>($"api/Filters/films?{query}") ?? new();
-        
+
         if (!string.IsNullOrEmpty(_selectedLotId) && !_lotIds.Contains(_selectedLotId)) _selectedLotId = null;
         if (!string.IsNullOrEmpty(_selectedWaferId) && !_waferIds.Contains(_selectedWaferId)) _selectedWaferId = null;
         if (!string.IsNullOrEmpty(_selectedCassetteRcp) && !_cassetteRcps.Contains(_selectedCassetteRcp)) _selectedCassetteRcp = null;
         if (!string.IsNullOrEmpty(_selectedStageRcp) && !_stageRcps.Contains(_selectedStageRcp)) _selectedStageRcp = null;
         if (!string.IsNullOrEmpty(_selectedStageGroup) && !_stageGroups.Contains(_selectedStageGroup)) _selectedStageGroup = null;
         if (!string.IsNullOrEmpty(_selectedFilm) && !_films.Contains(_selectedFilm)) _selectedFilm = null;
-        
+
         StateHasChanged();
     }
 
@@ -621,9 +621,9 @@ else
         var filterQuery = BuildFilterQuery();
         if (!string.IsNullOrEmpty(filterQuery))
         {
-             query.Add(filterQuery);
+            query.Add(filterQuery);
         }
-        
+
         var url = $"api/WaferData/flatdata?{string.Join("&", query)}";
         try
         {
