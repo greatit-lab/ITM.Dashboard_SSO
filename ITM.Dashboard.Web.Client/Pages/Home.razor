@@ -253,7 +253,9 @@
                                 <tr @onclick="() => LoadPdfImage(rowIndex)" class="point-data-row">
                                     @foreach (var cell in _pointData.Data[rowIndex])
                                     {
-                                        <td style="text-align: right;">@FormatValue(cell)</td>
+                                        <td style="text-align: right;">
+                                            @FormatValue(cell)
+                                        </td>
                                     }
                                 </tr>
                             }
@@ -598,7 +600,7 @@ else
         if (string.IsNullOrEmpty(value)) return _eqpids ?? Enumerable.Empty<string>();
         return _eqpids?.Where(x => x.Contains(value, StringComparison.InvariantCultureIgnoreCase)) ?? Enumerable.Empty<string>();
     }
-    
+
     private async Task<IEnumerable<string>> SearchLotIds(string value, CancellationToken token)
     {
         await Task.Yield();
@@ -606,7 +608,7 @@ else
         if (!string.IsNullOrEmpty(value) && value == _selectedLotId) return _lotIds ?? Enumerable.Empty<string>();
         return _lotIds?.Where(x => x.Contains(value, StringComparison.InvariantCultureIgnoreCase)) ?? Enumerable.Empty<string>();
     }
-    
+
     private async Task<IEnumerable<string>> SearchWaferIds(string value, CancellationToken token)
     {
         await Task.Yield();
