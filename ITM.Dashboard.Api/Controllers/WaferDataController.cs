@@ -302,5 +302,35 @@ namespace ITM.Dashboard.Api.Controllers
                 return StatusCode(500, "PDF를 이미지로 변환하는 중 오류가 발생했습니다.");
             }
         }
+
+        [HttpGet("checkpdf")]
+        public async Task<IActionResult> CheckPdfExists(
+            [FromQuery] string eqpid,
+            [FromQuery] DateTime dateTime)
+        {
+            _logger.LogInformation("CheckPdfExists called with: eqpid={eqpid}, dateTime={dateTime}", eqpid, dateTime.ToString("o"));
+
+            var dbInfo = new DatabaseInfo();
+            var connectionString = dbInfo.GetConnectionString();
+            string? fileUrl = null;
+
+            await using (var conn = new NpgsqlConnection(connectionString))
+            {
+                await conn.OpenAsync();
+                var sql = "SELECT file_uri FROM public.plg_wf_map WHERE eqpid = @eqpid AND datetime = @dateTime LIMIT 1;";
+                await using (var cmd = new NpgsqlCommand(sql, conn))
+                {
+                    cmd.Parameters.AddWithValue("eqpid", eqpid);
+                    cmd.Parameters.AddWithValue("dateTime", dateTime);
+                    var result = await cmd.ExecuteScalarAsync();
+                    if (result != null && result != DBNull.Value)
+                    {
+                        fileUrl = result.ToString();
+                    }
+                }
+            }
+
+            return Ok(new { Exists = !string.IsNullOrEmpty(fileUrl) });
+        }
     }
 }
