@@ -73,7 +73,7 @@ public class FiltersController : ControllerBase
         var dbInfo = DatabaseInfo.CreateDefault();
         await using var conn = new NpgsqlConnection(dbInfo.GetConnectionString());
         await conn.OpenAsync();
-        var sql = @"SELECT MIN(datetime), MAX(datetime) FROM public.plg_wf_flat WHERE eqpid = @eqpid;";
+        var sql = @"SELECT MIN(serv_ts), MAX(serv_ts) FROM public.plg_wf_flat WHERE eqpid = @eqpid;";
         await using var cmd = new NpgsqlCommand(sql, conn);
         cmd.Parameters.AddWithValue("eqpid", eqpid);
         await using var reader = await cmd.ExecuteReaderAsync();
