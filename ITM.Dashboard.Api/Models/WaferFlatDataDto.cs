@@ -6,6 +6,7 @@ namespace ITM.Dashboard.Api.Models
 {
     public class WaferFlatDataDto
     {
+        public string? EqpId { get; set; }
         public string? LotId { get; set; }
         public int? WaferId { get; set; }
         public DateTime? ServTs { get; set; }
