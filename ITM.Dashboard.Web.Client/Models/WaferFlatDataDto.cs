@@ -7,6 +7,7 @@ namespace ITM.Dashboard.Web.Client.Models
 {
     public class WaferFlatDataDto : IEquatable<WaferFlatDataDto>
     {
+        public string? EqpId { get; set; }
         public string? LotId { get; set; }
         public int? WaferId { get; set; }
         public DateTime? ServTs { get; set; }
@@ -20,7 +21,8 @@ namespace ITM.Dashboard.Web.Client.Models
         {
             if (other is null) return false;
 
-            return LotId == other.LotId &&
+            return EqpId == other.EqpId &&
+                   LotId == other.LotId &&
                    WaferId == other.WaferId &&
                    ServTs == other.ServTs &&
                    DateTime == other.DateTime &&
@@ -34,7 +36,17 @@ namespace ITM.Dashboard.Web.Client.Models
 
         public override int GetHashCode()
         {
-            return HashCode.Combine(LotId, WaferId, ServTs, DateTime, CassetteRcp, StageRcp, StageGroup, Film);
+            var hash = new HashCode();
+            hash.Add(EqpId);
+            hash.Add(LotId);
+            hash.Add(WaferId);
+            hash.Add(ServTs);
+            hash.Add(DateTime);
+            hash.Add(CassetteRcp);
+            hash.Add(StageRcp);
+            hash.Add(StageGroup);
+            hash.Add(Film);
+            return hash.ToHashCode();
         }
     }
 }
