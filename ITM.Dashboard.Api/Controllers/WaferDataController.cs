@@ -7,6 +7,11 @@ using System;
 using System.Collections.Generic;
 using System.Linq;
 using System.Threading.Tasks;
+using PdfiumViewer;
+using System.IO;
+using System.Drawing.Imaging;
+using System.Net.Http;
+using System.Runtime.Versioning;
 
 namespace ITM.Dashboard.Api.Controllers
 {
@@ -15,10 +20,12 @@ namespace ITM.Dashboard.Api.Controllers
     public class WaferDataController : ControllerBase
     {
         private readonly ILogger<WaferDataController> _logger;
+        private readonly IHttpClientFactory _httpClientFactory;
 
-        public WaferDataController(ILogger<WaferDataController> logger)
+        public WaferDataController(ILogger<WaferDataController> logger, IHttpClientFactory httpClientFactory)
         {
             _logger = logger;
+            _httpClientFactory = httpClientFactory;
         }
 
         [HttpGet("pointdata")]
@@ -184,12 +191,12 @@ namespace ITM.Dashboard.Api.Controllers
             }
 
             var dataSql = $@"
-            SELECT 
-                lotid, waferid, serv_ts, datetime, cassettercp, stagercp, stagegroup, film 
-            FROM public.plg_wf_flat 
-            {whereQuery} 
-            GROUP BY 
-                serv_ts, datetime, lotid, waferid, cassettercp, stagercp, stagegroup, film
+            SELECT
+                eqpid, lotid, waferid, serv_ts, datetime, cassettercp, stagercp, stagegroup, film
+            FROM public.plg_wf_flat
+            {whereQuery}
+            GROUP BY
+                eqpid, serv_ts, datetime, lotid, waferid, cassettercp, stagercp, stagegroup, film
             {orderByClause}
             OFFSET @Offset LIMIT @PageSize;";
 
@@ -203,18 +210,96 @@ namespace ITM.Dashboard.Api.Controllers
             {
                 results.Add(new WaferFlatDataDto
                 {
-                    LotId = reader.IsDBNull(0) ? null : reader.GetString(0),
-                    WaferId = reader.IsDBNull(1) ? (int?)null : reader.GetInt32(1),
-                    ServTs = reader.IsDBNull(2) ? (DateTime?)null : reader.GetDateTime(2),
-                    DateTime = reader.IsDBNull(3) ? (DateTime?)null : reader.GetDateTime(3),
-                    CassetteRcp = reader.IsDBNull(4) ? null : reader.GetString(4),
-                    StageRcp = reader.IsDBNull(5) ? null : reader.GetString(5),
-                    StageGroup = reader.IsDBNull(6) ? null : reader.GetString(6),
-                    Film = reader.IsDBNull(7) ? null : reader.GetString(7)
+                    EqpId = reader.IsDBNull(0) ? null : reader.GetString(0),
+                    LotId = reader.IsDBNull(1) ? null : reader.GetString(1),
+                    WaferId = reader.IsDBNull(2) ? (int?)null : reader.GetInt32(2),
+                    ServTs = reader.IsDBNull(3) ? (DateTime?)null : reader.GetDateTime(3),
+                    DateTime = reader.IsDBNull(4) ? (DateTime?)null : reader.GetDateTime(4),
+                    CassetteRcp = reader.IsDBNull(5) ? null : reader.GetString(5),
+                    StageRcp = reader.IsDBNull(6) ? null : reader.GetString(6),
+                    StageGroup = reader.IsDBNull(7) ? null : reader.GetString(7),
+                    Film = reader.IsDBNull(8) ? null : reader.GetString(8)
                 });
             }
 
             return Ok(new { items = results, totalItems });
+        }
+
+        [HttpGet("pdfimage")]
+        [SupportedOSPlatform("windows")]
+        public async Task<IActionResult> GetPdfImage(
+            [FromQuery] string eqpid,
+            [FromQuery] DateTime dateTime,
+            [FromQuery] int pointNumber
+            )
+        {
+            _logger.LogInformation("GetPdfImage called with: eqpid={eqpid}, dateTime={dateTime}, pointNumber={pointNumber}",
+                eqpid, dateTime.ToString("o"), pointNumber);
+        
+            // 1. DB에서 PDF 파일의 URL 조회 (기존과 동일)
+            var dbInfo = new DatabaseInfo();
+            var connectionString = dbInfo.GetConnectionString();
+            string? fileUrl = null;
+        
+            await using (var conn = new NpgsqlConnection(connectionString))
+            {
+                await conn.OpenAsync();
+                var sql = "SELECT file_uri FROM public.plg_wf_map WHERE eqpid = @eqpid AND datetime = @dateTime LIMIT 1;";
+                await using (var cmd = new NpgsqlCommand(sql, conn))
+                {
+                    cmd.Parameters.AddWithValue("eqpid", eqpid);
+                    cmd.Parameters.AddWithValue("dateTime", dateTime);
+                    var result = await cmd.ExecuteScalarAsync();
+                    if (result != null && result != DBNull.Value)
+                    {
+                        fileUrl = result.ToString();
+                    }
+                }
+            }
+        
+            if (string.IsNullOrEmpty(fileUrl))
+            {
+                _logger.LogWarning("PDF file_uri (URL) not found for eqpid={eqpid}", eqpid);
+                return NotFound("PDF 정보를 찾을 수 없습니다.");
+            }
+        
+            try
+            {
+                // 2. [핵심] URL로부터 PDF 파일을 HTTP로 다운로드
+                _logger.LogInformation("Downloading PDF from URL: {fileUrl}", fileUrl);
+                var client = _httpClientFactory.CreateClient();
+                var pdfBytes = await client.GetByteArrayAsync(fileUrl); // URL에서 파일 내용을 byte 배열로 직접 다운로드
+        
+                // 3. [핵심] 다운로드한 byte 데이터를 메모리에서 바로 이미지로 변환
+                using (var pdfDocument = PdfDocument.Load(pdfBytes))
+                {
+                    var pageIndex = pointNumber;
+                    if (pageIndex < 0 || pageIndex >= pdfDocument.PageCount)
+                    {
+                        return BadRequest("유효하지 않은 페이지 번호입니다.");
+                    }
+        
+                    var dpi = 150;
+                    using (var image = pdfDocument.Render(pageIndex, dpi, dpi, PdfRenderFlags.CorrectFromDpi))
+                    {
+                        using (var memoryStream = new MemoryStream())
+                        {
+                            image.Save(memoryStream, ImageFormat.Png);
+                            return File(memoryStream.ToArray(), "image/png");
+                        }
+                    }
+                }
+            }
+            catch (HttpRequestException httpEx)
+            {
+                _logger.LogError(httpEx, "Failed to download PDF from {fileUrl}", fileUrl);
+                return StatusCode(502, "PDF 저장소 서버에서 파일을 가져오는 데 실패했습니다.");
+            }
+            catch (Exception ex)
+            {
+                _logger.LogError(ex, "Failed to render PDF page to image from URL: {fileUrl}", fileUrl);
+                return StatusCode(500, "PDF를 이미지로 변환하는 중 오류가 발생했습니다.");
+            }
         }
     }
 }
