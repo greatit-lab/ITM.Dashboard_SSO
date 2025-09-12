@@ -235,12 +235,12 @@ namespace ITM.Dashboard.Api.Controllers
         {
             _logger.LogInformation("GetPdfImage called with: eqpid={eqpid}, dateTime={dateTime}, pointNumber={pointNumber}",
                 eqpid, dateTime.ToString("o"), pointNumber);
-        
+
             // 1. DB에서 PDF 파일의 URL 조회 (기존과 동일)
             var dbInfo = new DatabaseInfo();
             var connectionString = dbInfo.GetConnectionString();
             string? fileUrl = null;
-        
+
             await using (var conn = new NpgsqlConnection(connectionString))
             {
                 await conn.OpenAsync();
@@ -256,13 +256,13 @@ namespace ITM.Dashboard.Api.Controllers
                     }
                 }
             }
-        
+
             if (string.IsNullOrEmpty(fileUrl))
             {
                 _logger.LogWarning("PDF file_uri (URL) not found for eqpid={eqpid}", eqpid);
                 return NotFound("PDF 정보를 찾을 수 없습니다.");
             }
-        
+
             try
             {
                 // 2. [핵심] URL로부터 PDF 파일을 HTTP로 다운로드
@@ -270,15 +270,16 @@ namespace ITM.Dashboard.Api.Controllers
                 var client = _httpClientFactory.CreateClient();
                 var pdfBytes = await client.GetByteArrayAsync(fileUrl); // URL에서 파일 내용을 byte 배열로 직접 다운로드
         
-                // 3. [핵심] 다운로드한 byte 데이터를 메모리에서 바로 이미지로 변환
-                using (var pdfDocument = PdfDocument.Load(pdfBytes))
+                // 3. [핵심] 다운로드한 byte 데이터를 MemoryStream으로 감싸서 전달
+                using (var stream = new MemoryStream(pdfBytes))
+                using (var pdfDocument = PdfDocument.Load(stream)) // [수정] MemoryStream 사용
                 {
                     var pageIndex = pointNumber;
                     if (pageIndex < 0 || pageIndex >= pdfDocument.PageCount)
                     {
                         return BadRequest("유효하지 않은 페이지 번호입니다.");
                     }
-        
+
                     var dpi = 150;
                     using (var image = pdfDocument.Render(pageIndex, dpi, dpi, PdfRenderFlags.CorrectFromDpi))
                     {
