@@ -120,9 +120,9 @@ namespace ITM.Dashboard.Api.Controllers
         [HttpGet("flatdata")]
         public async Task<ActionResult> GetWaferFlatDataPaged(
             [FromQuery] int page = 0, [FromQuery] int pageSize = 20, [FromQuery] string? eqpid = null,
-            [FromQuery] string? lotid = null, [FromQuery] int? waferid = null, [FromQuery] DateTime? startDate = null,
-            [FromQuery] DateTime? endDate = null, [FromQuery] string? cassettercp = null, [FromQuery] string? stagercp = null,
-            [FromQuery] string? stagegroup = null, [FromQuery] string? film = null,
+            [FromQuery] string? lotId = null, [FromQuery] int? waferId = null, [FromQuery] DateTime? startDate = null,
+            [FromQuery] DateTime? endDate = null, [FromQuery] string? cassetteRcp = null, [FromQuery] string? stageRcp = null,
+            [FromQuery] string? stageGroup = null, [FromQuery] string? film = null,
             [FromQuery] string? sortLabel = null, [FromQuery] string? sortDirection = null
             )
         {
@@ -137,13 +137,13 @@ namespace ITM.Dashboard.Api.Controllers
             var parameters = new Dictionary<string, object>();
 
             if (!string.IsNullOrEmpty(eqpid)) { whereClauses.Add("eqpid = @eqpid"); parameters["eqpid"] = eqpid; }
-            if (!string.IsNullOrEmpty(lotid)) { whereClauses.Add("lotid ILIKE @lotid"); parameters["lotid"] = $"%{lotid}%"; }
-            if (waferid.HasValue) { whereClauses.Add("waferid = @waferid"); parameters["waferid"] = waferid.Value; }
+            if (!string.IsNullOrEmpty(lotId)) { whereClauses.Add("lotid ILIKE @lotid"); parameters["lotid"] = $"%{lotId}%"; }
+            if (waferId.HasValue) { whereClauses.Add("waferid = @waferid"); parameters["waferid"] = waferId.Value; }
             if (startDate.HasValue) { whereClauses.Add("serv_ts >= @startDate"); parameters["startDate"] = startDate.Value; }
             if (endDate.HasValue) { whereClauses.Add("serv_ts <= @endDate"); parameters["endDate"] = endDate.Value.AddDays(1).AddTicks(-1); }
-            if (!string.IsNullOrEmpty(cassettercp)) { whereClauses.Add("cassettercp = @cassettercp"); parameters["cassettercp"] = cassettercp; }
-            if (!string.IsNullOrEmpty(stagercp)) { whereClauses.Add("stagercp = @stagercp"); parameters["stagercp"] = stagercp; }
-            if (!string.IsNullOrEmpty(stagegroup)) { whereClauses.Add("stagegroup = @stagegroup"); parameters["stagegroup"] = stagegroup; }
+            if (!string.IsNullOrEmpty(cassetteRcp)) { whereClauses.Add("cassettercp = @cassettercp"); parameters["cassettercp"] = cassetteRcp; }
+            if (!string.IsNullOrEmpty(stageRcp)) { whereClauses.Add("stagercp = @stagercp"); parameters["stagercp"] = stageRcp; }
+            if (!string.IsNullOrEmpty(stageGroup)) { whereClauses.Add("stagegroup = @stagegroup"); parameters["stagegroup"] = stageGroup; }
             if (!string.IsNullOrEmpty(film)) { whereClauses.Add("film = @film"); parameters["film"] = film; }
 
             string whereQuery = whereClauses.Any() ? "WHERE " + string.Join(" AND ", whereClauses) : "";
