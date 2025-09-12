@@ -22,6 +22,10 @@
         z-index: 1;
         background-color: var(--mud-palette-surface, #fff);
     }
+    .point-data-row:hover {
+        background-color: #f5f5f5;
+        cursor: pointer;
+    }
 </style>
 
 <PageTitle>Wafer Flat Data</PageTitle>
@@ -134,132 +138,157 @@
 
 @if (_isGridVisible)
 {
-    <MudText Typo="Typo.h6" GutterBottom="true" Class="mt-4">Data Results</MudText>
-
-    <MudDataGrid @ref="_dataGrid" T="WaferFlatDataDto" ServerData="LoadData" Striped="true" Hover="true" Dense="true" Class="compact-grid"
-                 SelectedItemChanged="OnSelectedItemChanged"
-                 RowStyleFunc="RowStyleFunc"
-                 RowsPerPage="8">
-        <Columns>
-            <PropertyColumn Property="x => x.ServTs" Title="Date Time" Format="yyyy-MM-dd HH:mm:ss" />
-            <PropertyColumn Property="x => x.LotId" Title="Lot ID" />
-            <PropertyColumn Property="x => x.WaferId" Title="Wafer ID" />
-            <PropertyColumn Property="x => x.CassetteRcp" Title="Cassette RCP" />
-            <PropertyColumn Property="x => x.StageRcp" Title="Stage RCP" />
-            <PropertyColumn Property="x => x.StageGroup" Title="Stage Group" />
-            <PropertyColumn Property="x => x.Film" Title="Film" />
-            <PropertyColumn Property="x => x.DateTime" Title="EQP Time" Format="yyyy-MM-dd HH:mm:ss" />
-        </Columns>
-        <PagerContent>
-            <MudDataGridPager T="WaferFlatDataDto" HideRowsPerPage="true" />
-        </PagerContent>
-    </MudDataGrid>
-
-    @if (_statistics != null)
-    {
-        <MudSimpleTable Dense="true" Hover="true" Class="compact-grid mud-table-sticky-header mt-4">
-            <thead>
-                <tr>
-                    <th>Statistics</th>
-                    <th style="text-align: right;">T1(Å)</th>
-                    <th style="text-align: right;">GOF</th>
-                    <th style="text-align: right;">Z(㎛)</th>
-                    <th style="text-align: right;">SRVISZ(㎛)</th>
-                </tr>
-            </thead>
-            <tbody>
-                <tr>
-                    <td>Max</td>
-                    <td style="text-align: right;">@_statistics.T1.Max.ToString("F3")</td>
-                    <td style="text-align: right;">@_statistics.Gof.Max.ToString("F4")</td>
-                    <td style="text-align: right;">@_statistics.Z.Max.ToString("F4")</td>
-                    <td style="text-align: right;">@_statistics.Srvisz.Max.ToString("F4")</td>
-                </tr>
-                <tr>
-                    <td>Min</td>
-                    <td style="text-align: right;">@_statistics.T1.Min.ToString("F3")</td>
-                    <td style="text-align: right;">@_statistics.Gof.Min.ToString("F4")</td>
-                    <td style="text-align: right;">@_statistics.Z.Min.ToString("F4")</td>
-                    <td style="text-align: right;">@_statistics.Srvisz.Min.ToString("F4")</td>
-                </tr>
-                <tr>
-                    <td>Range</td>
-                    <td style="text-align: right;">@_statistics.T1.Range.ToString("F3")</td>
-                    <td style="text-align: right;">@_statistics.Gof.Range.ToString("F4")</td>
-                    <td style="text-align: right;">@_statistics.Z.Range.ToString("F4")</td>
-                    <td style="text-align: right;">@_statistics.Srvisz.Range.ToString("F4")</td>
-                </tr>
-                <tr>
-                    <td>Mean</td>
-                    <td style="text-align: right;">@_statistics.T1.Mean.ToString("F3")</td>
-                    <td style="text-align: right;">@_statistics.Gof.Mean.ToString("F4")</td>
-                    <td style="text-align: right;">@_statistics.Z.Mean.ToString("F4")</td>
-                    <td style="text-align: right;">@_statistics.Srvisz.Mean.ToString("F4")</td>
-                </tr>
-                <tr>
-                    <td>StdD</td>
-                    <td style="text-align: right;">@_statistics.T1.StdDev.ToString("F3")</td>
-                    <td style="text-align: right;">@_statistics.Gof.StdDev.ToString("F4")</td>
-                    <td style="text-align: right;">@_statistics.Z.StdDev.ToString("F4")</td>
-                    <td style="text-align: right;">@_statistics.Srvisz.StdDev.ToString("F4")</td>
-                </tr>
-                <tr>
-                    <td>%StdD</td>
-                    <td style="text-align: right;">@_statistics.T1.PercentStdDev.ToString("F3")</td>
-                    <td style="text-align: right;">@_statistics.Gof.PercentStdDev.ToString("F4")</td>
-                    <td style="text-align: right;">@_statistics.Z.PercentStdDev.ToString("F4")</td>
-                    <td style="text-align: right;">@_statistics.Srvisz.PercentStdDev.ToString("F4")</td>
-                </tr>
-                <tr>
-                    <td>%NonU</td>
-                    <td style="text-align: right;">@_statistics.T1.PercentNonU.ToString("F3")</td>
-                    <td style="text-align: right;">@_statistics.Gof.PercentNonU.ToString("F4")</td>
-                    <td style="text-align: right;">@_statistics.Z.PercentNonU.ToString("F4")</td>
-                    <td style="text-align: right;">@_statistics.Srvisz.PercentNonU.ToString("F4")</td>
-                </tr>
-            </tbody>
-        </MudSimpleTable>
-    }
-
-    @if (_selectedRowItem != null)
-    {
-        <MudText Typo="Typo.h6" GutterBottom="true" Class="mt-4">포인트 데이터 (Point Data)</MudText>
-
-        @if (_isPointDataLoading)
-        {
-            <MudProgressCircular Indeterminate="true" Size="Size.Small" Class="mt-4" />
-        }
-        else if (_pointData != null && _pointData.Headers.Any())
-        {
-            <MudSimpleTable Dense="true" Hover="true" Class="compact-grid mud-table-sticky-header" Height="300px">
-                <thead>
-                    <tr>
-                        @foreach (var header in _pointData.Headers)
-                        {
-                            <th style="text-align: right;">@header</th>
-                        }
-                    </tr>
-                </thead>
-                <tbody>
-                    @foreach (var row in _pointData.Data)
-                    {
+    <MudGrid>
+        <MudItem xs="12" md="7">
+            <MudText Typo="Typo.h6" GutterBottom="true" Class="mt-4">Data Results</MudText>
+        
+            <MudDataGrid @ref="_dataGrid" T="WaferFlatDataDto" ServerData="LoadData" Striped="true" Hover="true" Dense="true" Class="compact-grid"
+                         SelectedItemChanged="OnSelectedItemChanged"
+                         RowStyleFunc="RowStyleFunc"
+                         RowsPerPage="8">
+                <Columns>
+                    <PropertyColumn Property="x => x.ServTs" Title="Date Time" Format="yyyy-MM-dd HH:mm:ss" />
+                    <PropertyColumn Property="x => x.LotId" Title="Lot ID" />
+                    <PropertyColumn Property="x => x.WaferId" Title="Wafer ID" />
+                    <PropertyColumn Property="x => x.CassetteRcp" Title="Cassette RCP" />
+                    <PropertyColumn Property="x => x.StageRcp" Title="Stage RCP" />
+                    <PropertyColumn Property="x => x.StageGroup" Title="Stage Group" />
+                    <PropertyColumn Property="x => x.Film" Title="Film" />
+                    <PropertyColumn Property="x => x.DateTime" Title="EQP Time" Format="yyyy-MM-dd HH:mm:ss" />
+                </Columns>
+                <PagerContent>
+                    <MudDataGridPager T="WaferFlatDataDto" HideRowsPerPage="true" />
+                </PagerContent>
+            </MudDataGrid>
+        
+            @if (_statistics != null)
+            {
+                <MudSimpleTable Dense="true" Hover="true" Class="compact-grid mud-table-sticky-header mt-4">
+                    <thead>
                         <tr>
-                            @foreach (var cell in row)
-                            {
-                                <td style="text-align: right;">
-                                    @FormatValue(cell)
-                                </td>
-                            }
+                            <th>Statistics</th>
+                            <th style="text-align: right;">T1(Å)</th>
+                            <th style="text-align: right;">GOF</th>
+                            <th style="text-align: right;">Z(㎛)</th>
+                            <th style="text-align: right;">SRVISZ(㎛)</th>
                         </tr>
+                    </thead>
+                    <tbody>
+                        <tr>
+                            <td>Max</td>
+                            <td style="text-align: right;">@_statistics.T1.Max.ToString("F3")</td>
+                            <td style="text-align: right;">@_statistics.Gof.Max.ToString("F4")</td>
+                            <td style="text-align: right;">@_statistics.Z.Max.ToString("F4")</td>
+                            <td style="text-align: right;">@_statistics.Srvisz.Max.ToString("F4")</td>
+                        </tr>
+                        <tr>
+                            <td>Min</td>
+                            <td style="text-align: right;">@_statistics.T1.Min.ToString("F3")</td>
+                            <td style="text-align: right;">@_statistics.Gof.Min.ToString("F4")</td>
+                            <td style="text-align: right;">@_statistics.Z.Min.ToString("F4")</td>
+                            <td style="text-align: right;">@_statistics.Srvisz.Min.ToString("F4")</td>
+                        </tr>
+                        <tr>
+                            <td>Range</td>
+                            <td style="text-align: right;">@_statistics.T1.Range.ToString("F3")</td>
+                            <td style="text-align: right;">@_statistics.Gof.Range.ToString("F4")</td>
+                            <td style="text-align: right;">@_statistics.Z.Range.ToString("F4")</td>
+                            <td style="text-align: right;">@_statistics.Srvisz.Range.ToString("F4")</td>
+                        </tr>
+                        <tr>
+                            <td>Mean</td>
+                            <td style="text-align: right;">@_statistics.T1.Mean.ToString("F3")</td>
+                            <td style="text-align: right;">@_statistics.Gof.Mean.ToString("F4")</td>
+                            <td style="text-align: right;">@_statistics.Z.Mean.ToString("F4")</td>
+                            <td style="text-align: right;">@_statistics.Srvisz.Mean.ToString("F4")</td>
+                        </tr>
+                        <tr>
+                            <td>StdD</td>
+                            <td style="text-align: right;">@_statistics.T1.StdDev.ToString("F3")</td>
+                            <td style="text-align: right;">@_statistics.Gof.StdDev.ToString("F4")</td>
+                            <td style="text-align: right;">@_statistics.Z.StdDev.ToString("F4")</td>
+                            <td style="text-align: right;">@_statistics.Srvisz.StdDev.ToString("F4")</td>
+                        </tr>
+                        <tr>
+                            <td>%StdD</td>
+                            <td style="text-align: right;">@_statistics.T1.PercentStdDev.ToString("F3")</td>
+                            <td style="text-align: right;">@_statistics.Gof.PercentStdDev.ToString("F4")</td>
+                            <td style="text-align: right;">@_statistics.Z.PercentStdDev.ToString("F4")</td>
+                            <td style="text-align: right;">@_statistics.Srvisz.PercentStdDev.ToString("F4")</td>
+                        </tr>
+                        <tr>
+                            <td>%NonU</td>
+                            <td style="text-align: right;">@_statistics.T1.PercentNonU.ToString("F3")</td>
+                            <td style="text-align: right;">@_statistics.Gof.PercentNonU.ToString("F4")</td>
+                            <td style="text-align: right;">@_statistics.Z.PercentNonU.ToString("F4")</td>
+                            <td style="text-align: right;">@_statistics.Srvisz.PercentNonU.ToString("F4")</td>
+                        </tr>
+                    </tbody>
+                </MudSimpleTable>
+            }
+        
+            @if (_selectedRowItem != null)
+            {
+                <MudText Typo="Typo.h6" GutterBottom="true" Class="mt-4">포인트 데이터 (Point Data)</MudText>
+        
+                @if (_isPointDataLoading)
+                {
+                    <MudProgressCircular Indeterminate="true" Size="Size.Small" Class="mt-4" />
+                }
+                else if (_pointData != null && _pointData.Headers.Any())
+                {
+                    <MudSimpleTable Dense="true" Hover="true" Class="compact-grid mud-table-sticky-header" Height="300px">
+                        <thead>
+                            <tr>
+                                @foreach (var header in _pointData.Headers)
+                                {
+                                    <th style="text-align: right;">@header</th>
+                                }
+                            </tr>
+                        </thead>
+                        <tbody>
+                            @foreach (var row in _pointData.Data)
+                            {
+                                <tr>
+                                    @foreach (var cell in row)
+                                    {
+                                        <td style="text-align: right;">
+                                            @FormatValue(cell)
+                                        </td>
+                                    }
+                                </tr>
+                            }
+                        </tbody>
+                    </MudSimpleTable>
+                }
+                else
+                {
+                    <MudText Class="mt-4">선택된 항목에 대한 포인트 데이터가 없습니다.</MudText>
+                }
+            }
+        </MudItem>
+
+        <MudItem xs="12" md="5">
+             @if (_selectedRowItem != null)
+             {
+                <MudText Typo="Typo.h6" GutterBottom="true" Class="mt-4">PDF Map Image</MudText>
+                <MudPaper Class="pa-4 d-flex justify-center align-center" Style="height: 600px;">
+                    @if (_isPdfImageLoading)
+                    {
+                        <MudProgressCircular Color="Color.Primary" Indeterminate="true" />
                     }
-                </tbody>
-            </MudSimpleTable>
-        }
-        else
-        {
-            <MudText Class="mt-4">선택된 항목에 대한 포인트 데이터가 없습니다.</MudText>
-        }
-    }
+                    else if (!string.IsNullOrEmpty(_pdfImageUrl))
+                    {
+                        <img src="@_pdfImageUrl" style="max-width: 100%; max-height: 100%;" />
+                    }
+                    else
+                    {
+                        <MudText>포인트 데이터를 선택하여 Map 이미지를 확인하세요.</MudText>
+                    }
+                </MudPaper>
+             }
+        </MudItem>
+    </MudGrid>
 }
 else
 {
