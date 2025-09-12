@@ -141,7 +141,7 @@
     <MudGrid>
         <MudItem xs="12" md="7">
             <MudText Typo="Typo.h6" GutterBottom="true" Class="mt-4">Data Results</MudText>
-        
+
             <MudDataGrid @ref="_dataGrid" T="WaferFlatDataDto" ServerData="LoadData" Striped="true" Hover="true" Dense="true" Class="compact-grid"
                          SelectedItemChanged="OnSelectedItemChanged"
                          RowStyleFunc="RowStyleFunc"
@@ -160,7 +160,7 @@
                     <MudDataGridPager T="WaferFlatDataDto" HideRowsPerPage="true" />
                 </PagerContent>
             </MudDataGrid>
-        
+
             @if (_statistics != null)
             {
                 <MudSimpleTable Dense="true" Hover="true" Class="compact-grid mud-table-sticky-header mt-4">
@@ -226,11 +226,11 @@
                     </tbody>
                 </MudSimpleTable>
             }
-        
+
             @if (_selectedRowItem != null)
             {
                 <MudText Typo="Typo.h6" GutterBottom="true" Class="mt-4">포인트 데이터 (Point Data)</MudText>
-        
+
                 @if (_isPointDataLoading)
                 {
                     <MudProgressCircular Indeterminate="true" Size="Size.Small" Class="mt-4" />
@@ -247,14 +247,13 @@
                             </tr>
                         </thead>
                         <tbody>
-                            @foreach (var row in _pointData.Data)
+                            @for (var i = 0; i < _pointData.Data.Count; i++)
                             {
-                                <tr>
-                                    @foreach (var cell in row)
+                                var rowIndex = i;
+                                <tr @onclick="() => LoadPdfImage(rowIndex)" class="point-data-row">
+                                    @foreach (var cell in _pointData.Data[rowIndex])
                                     {
-                                        <td style="text-align: right;">
-                                            @FormatValue(cell)
-                                        </td>
+                                        <td style="text-align: right;">@FormatValue(cell)</td>
                                     }
                                 </tr>
                             }
@@ -269,8 +268,8 @@
         </MudItem>
 
         <MudItem xs="12" md="5">
-             @if (_selectedRowItem != null)
-             {
+            @if (_selectedRowItem != null)
+            {
                 <MudText Typo="Typo.h6" GutterBottom="true" Class="mt-4">PDF Map Image</MudText>
                 <MudPaper Class="pa-4 d-flex justify-center align-center" Style="height: 600px;">
                     @if (_isPdfImageLoading)
@@ -286,7 +285,7 @@
                         <MudText>포인트 데이터를 선택하여 Map 이미지를 확인하세요.</MudText>
                     }
                 </MudPaper>
-             }
+            }
         </MudItem>
     </MudGrid>
 }
@@ -326,6 +325,8 @@ else
     private StatisticsDto? _statistics;
     private PointDataResponseDto? _pointData;
     private bool _isPointDataLoading = false;
+    private string? _pdfImageUrl;
+    private bool _isPdfImageLoading = false;
 
     protected override async Task OnInitializedAsync() => await LoadSites();
 
@@ -341,11 +342,14 @@ else
     private async Task OnSelectedItemChanged(WaferFlatDataDto item)
     {
         _selectedRowItem = item;
+        _pdfImageUrl = null;
+        _isPdfImageLoading = false;
         await LoadRowDetails(item);
     }
 
     private async Task LoadRowDetails(WaferFlatDataDto? item)
     {
+        _pdfImageUrl = null;
         if (item?.LotId == null || item.WaferId == null || item.ServTs == null || item.DateTime == null || item.CassetteRcp == null || item.StageRcp == null || item.StageGroup == null || item.Film == null)
         {
             _statistics = null;
@@ -392,6 +396,40 @@ else
         finally
         {
             _isPointDataLoading = false;
+            StateHasChanged();
+        }
+    }
+
+    private async Task LoadPdfImage(int pointNumber)
+    {
+        if (_selectedRowItem?.EqpId == null || _selectedRowItem.DateTime == null)
+        {
+            return;
+        }
+
+        _isPdfImageLoading = true;
+        _pdfImageUrl = null;
+        StateHasChanged();
+
+        var client = HttpClientFactory.CreateClient("ITM.Dashboard.Api");
+        var eqpid = Uri.EscapeDataString(_selectedRowItem.EqpId);
+        var dateTime = _selectedRowItem.DateTime.Value.ToString("o");
+        var url = $"api/WaferData/pdfimage?eqpid={eqpid}&dateTime={dateTime}&pointNumber={pointNumber}";
+
+        try
+        {
+            var imageData = await client.GetByteArrayAsync(url);
+            var imageType = "image/png";
+            _pdfImageUrl = $"data:{imageType};base64,{Convert.ToBase64String(imageData)}";
+        }
+        catch (Exception ex)
+        {
+            Console.WriteLine($"Error fetching PDF image: {ex.Message}");
+            _pdfImageUrl = null;
+        }
+        finally
+        {
+            _isPdfImageLoading = false;
             StateHasChanged();
         }
     }
@@ -550,30 +588,30 @@ else
             _minSelectableDate = dateRange.MinDate;
             _maxSelectableDate = dateRange.MaxDate;
             _startDate = _minSelectableDate;
-            _endDate = _maxSelectableDate;
+            _endDate = DateTime.Today;
         }
     }
 
     private async Task<IEnumerable<string>> SearchEqpids(string value, CancellationToken token)
     {
         await Task.Yield();
-        if (string.IsNullOrEmpty(value)) return _eqpids;
-        return _eqpids.Where(x => x.Contains(value, StringComparison.InvariantCultureIgnoreCase)) ?? Enumerable.Empty<string>();
+        if (string.IsNullOrEmpty(value)) return _eqpids ?? Enumerable.Empty<string>();
+        return _eqpids?.Where(x => x.Contains(value, StringComparison.InvariantCultureIgnoreCase)) ?? Enumerable.Empty<string>();
     }
-
+    
     private async Task<IEnumerable<string>> SearchLotIds(string value, CancellationToken token)
     {
         await Task.Yield();
-        if (!string.IsNullOrEmpty(value) && value == _selectedLotId) return _lotIds;
-        if (string.IsNullOrEmpty(value)) return _lotIds;
-        return _lotIds.Where(x => x.Contains(value, StringComparison.InvariantCultureIgnoreCase)) ?? Enumerable.Empty<string>();
+        if (string.IsNullOrEmpty(value)) return _lotIds ?? Enumerable.Empty<string>();
+        if (!string.IsNullOrEmpty(value) && value == _selectedLotId) return _lotIds ?? Enumerable.Empty<string>();
+        return _lotIds?.Where(x => x.Contains(value, StringComparison.InvariantCultureIgnoreCase)) ?? Enumerable.Empty<string>();
     }
-
+    
     private async Task<IEnumerable<string>> SearchWaferIds(string value, CancellationToken token)
     {
         await Task.Yield();
-        if (string.IsNullOrEmpty(value)) return _waferIds;
-        return _waferIds.Where(x => x.Contains(value, StringComparison.InvariantCultureIgnoreCase)) ?? Enumerable.Empty<string>();
+        if (string.IsNullOrEmpty(value)) return _waferIds ?? Enumerable.Empty<string>();
+        return _waferIds?.Where(x => x.Contains(value, StringComparison.InvariantCultureIgnoreCase)) ?? Enumerable.Empty<string>();
     }
 
     private async Task SearchData()
