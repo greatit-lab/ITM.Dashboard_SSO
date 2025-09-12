@@ -116,8 +116,8 @@ public class FiltersController : ControllerBase
             }
         }
 
-        if (startDate.HasValue) { whereClauses.Add("datetime >= @startDate"); parameters["startDate"] = startDate.Value; }
-        if (endDate.HasValue) { whereClauses.Add("datetime <= @endDate"); parameters["endDate"] = endDate.Value.AddDays(1).AddTicks(-1); }
+        if (startDate.HasValue) { whereClauses.Add("serv_ts >= @startDate"); parameters["startDate"] = startDate.Value; }
+        if (endDate.HasValue) { whereClauses.Add("serv_ts <= @endDate"); parameters["endDate"] = endDate.Value.AddDays(1).AddTicks(-1); }
 
         AddCondition(lotId, "lotid");
         AddCondition(cassetteRcp, "cassettercp");
