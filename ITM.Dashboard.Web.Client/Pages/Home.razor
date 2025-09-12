@@ -626,14 +626,13 @@ else
 
     private async Task SearchData()
     {
-        // ▼▼▼ [수정] Snackbar 호출 대신, _showDateRangeWarning 변수를 제어하도록 변경합니다.
         if (_startDate.HasValue && _endDate.HasValue && (_endDate.Value - _startDate.Value).TotalDays > 30)
         {
-            _showDateRangeWarning = true; // 경고 메시지 표시
-            return; 
+            _showDateRangeWarning = true;
+            return;
         }
 
-        _showDateRangeWarning = false; // 정상 조회 시, 경고 메시지 숨김
+        _showDateRangeWarning = false;
 
         if (_dataGrid is not null)
         {
