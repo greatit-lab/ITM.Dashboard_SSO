@@ -68,13 +68,13 @@
                              Disabled="@(string.IsNullOrEmpty(_selectedLotId))" />
         </MudItem>
         <MudItem xs="6" sm="3" md="2">
-            <MudDatePicker Label="Start Date" Value="_startDate" DateChanged="OnDateFilterChanged"
-                           MinDate="_minSelectableDate" MaxDate="_maxSelectableDate" Dense="true" Margin="Margin.Dense"
+            <MudDatePicker Label="Start Date" @bind-Date="_startDate"
+                           MinDate="_minSelectableDate" MaxDate="_endDate" Dense="true" Margin="Margin.Dense"
                            Disabled="@(string.IsNullOrEmpty(_selectedEqpid))" />
         </MudItem>
         <MudItem xs="6" sm="3" md="2">
-            <MudDatePicker Label="End Date" Value="_endDate" DateChanged="OnDateFilterChanged"
-                           MinDate="_minSelectableDate" MaxDate="_maxSelectableDate" Dense="true" Margin="Margin.Dense"
+            <MudDatePicker Label="End Date" @bind-Date="_endDate"
+                           MinDate="_startDate" MaxDate="_maxSelectableDate" Dense="true" Margin="Margin.Dense"
                            Disabled="@(string.IsNullOrEmpty(_selectedEqpid))" />
         </MudItem>
         <MudItem xs="4" sm="2" md="1">
@@ -135,6 +135,13 @@
         </MudGrid>
     </MudCollapse>
 </MudPaper>
+
+@if (_showDateRangeWarning)
+{
+    <MudAlert Severity="Severity.Warning" Class="mt-4 mb-4">
+        조회 기간은 30일을 초과할 수 없습니다.
+    </MudAlert>
+}
 
 @if (_isGridVisible)
 {
@@ -329,6 +336,7 @@ else
     private bool _isPointDataLoading = false;
     private string? _pdfImageUrl;
     private bool _isPdfImageLoading = false;
+    private bool _showDateRangeWarning = false;
 
     protected override async Task OnInitializedAsync() => await LoadSites();
 
@@ -564,11 +572,6 @@ else
         await UpdateAllFilters();
     }
 
-    private async Task OnDateFilterChanged(DateTime? newDate)
-    {
-        await UpdateAllFilters();
-    }
-
     private async Task OnAdvancedFilterChanged(string value, string filterName)
     {
         switch (filterName)
@@ -589,8 +592,13 @@ else
         {
             _minSelectableDate = dateRange.MinDate;
             _maxSelectableDate = dateRange.MaxDate;
-            _startDate = _minSelectableDate;
             _endDate = DateTime.Today;
+            _startDate = DateTime.Today.AddDays(-14);
+
+            if (_startDate < _minSelectableDate)
+            {
+                _startDate = _minSelectableDate;
+            }
         }
     }
 
@@ -618,8 +626,22 @@ else
 
     private async Task SearchData()
     {
+        // ▼▼▼ [수정] Snackbar 호출 대신, _showDateRangeWarning 변수를 제어하도록 변경합니다.
+        if (_startDate.HasValue && _endDate.HasValue && (_endDate.Value - _startDate.Value).TotalDays > 30)
+        {
+            _showDateRangeWarning = true; // 경고 메시지 표시
+            return; 
+        }
+
+        _showDateRangeWarning = false; // 정상 조회 시, 경고 메시지 숨김
+
         if (_dataGrid is not null)
         {
+            if (_startDate.HasValue && !_endDate.HasValue)
+            {
+                _endDate = DateTime.Today;
+            }
+
             _selectedRowItem = null;
             _statistics = null;
             _pointData = null;
