@@ -268,8 +268,8 @@ namespace ITM.Dashboard.Api.Controllers
                 // 2. [핵심] URL로부터 PDF 파일을 HTTP로 다운로드
                 _logger.LogInformation("Downloading PDF from URL: {fileUrl}", fileUrl);
                 var client = _httpClientFactory.CreateClient();
-                var pdfBytes = await client.GetByteArrayAsync(fileUrl); // URL에서 파일 내용을 byte 배열로 직접 다운로드
-        
+                var pdfBytes = await client.GetByteArrayAsync(fileUrl);
+
                 // 3. [핵심] 다운로드한 byte 데이터를 MemoryStream으로 감싸서 전달
                 using (var stream = new MemoryStream(pdfBytes))
                 using (var pdfDocument = PdfDocument.Load(stream)) // [수정] MemoryStream 사용
