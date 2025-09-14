@@ -1,0 +1,872 @@
+@page "/waferflatdata"
+@using ITM.Dashboard.Web.Client.Models
+@inject IHttpClientFactory HttpClientFactory
+@using System.Text.Json
+@using System.Globalization
+@using System.Text
+
+<style>
+    .compact-grid th,
+    .compact-grid td {
+        padding: 4px 10px !important;
+        font-size: 0.8rem !important;
+        line-height: 1.4 !important;
+        white-space: nowrap; /* 글자가 줄바꿈되지 않도록 강제 */
+    }
+
+    .enforce-widths {
+        table-layout: fixed;
+    }
+
+    /* 넓은 열 (기본 너비) */
+    .enforce-widths th:nth-child(1), .enforce-widths td:nth-child(1) { width: 15%; }    /* Date Time */
+    .enforce-widths th:nth-child(2), .enforce-widths td:nth-child(2) { width: 6%; }    /* Lot ID */
+    /* 간격을 줄일 열 (Wafer ID) */
+    .enforce-widths th:nth-child(3), .enforce-widths td:nth-child(3) {
+        width: 1%;
+        padding-right: 2px !important; /* 오른쪽 여백 최소화 */
+    }
+    /* 간격을 줄일 열 (Cassette RCP) */
+    .enforce-widths th:nth-child(4), .enforce-widths td:nth-child(4) {
+        width: 14%;
+        padding-left: 2px !important; /* 왼쪽 여백 최소화 */
+    }
+    .enforce-widths th:nth-child(5), .enforce-widths td:nth-child(5) { width: 12%; }    /* Stage RCP */
+    .enforce-widths th:nth-child(6), .enforce-widths td:nth-child(6) { width: 14%; }    /* Stage Group */
+    .enforce-widths th:nth-child(7), .enforce-widths td:nth-child(7) { width: 23%; }    /* Film */
+    .enforce-widths th:nth-child(8), .enforce-widths td:nth-child(8) { width: 15%; }    /* EQP Time */
+
+    .mud-table-sticky-header .mud-table-container {
+        height: 170px;
+        overflow-y: auto;
+    }
+    .mud-table-sticky-header thead th {
+        position: sticky;
+        top: 0;
+        z-index: 1;
+        background-color: var(--mud-palette-surface, #fff);
+    }
+    .point-data-row:hover {
+        background-color: #f5f5f5;
+        cursor: pointer;
+    }
+    .selected-point-row {
+        background-color: #E3F2FD !important;
+    }
+    .image-container {
+        position: relative; /* 자식 요소를 위한 위치 기준 */
+    }
+    .image-overlay-text {
+        position: absolute;
+        top: 12%; /* 원 상단에서 살짝 안쪽으로 */
+        left: 50%;
+        transform: translateX(-50%);
+        color: white;
+        background-color: rgba(0, 0, 0, 0.6); /* 가독성을 위한 반투명 검은 배경 */
+        padding: 4px 10px;
+        border-radius: 12px;
+        font-size: 0.9rem;
+        font-weight: 500;
+        pointer-events: none; /* 텍스트가 이미지 클릭을 방해하지 않도록 설정 */
+    }
+    /* ▼▼▼ [추가] 십자선 스타일을 추가합니다. ▼▼▼ */
+    .crosshair-line {
+        position: absolute;
+        background-color: rgba(255, 0, 0, 0.5); /* 반투명 빨간색 */
+        pointer-events: none; /* 선이 이미지 클릭을 방해하지 않도록 설정 */
+    }
+    .crosshair-h {
+        top: 50%;
+        left: 0;
+        width: 100%;
+        height: 1px; /* 선 두께 */
+        transform: translateY(-50%);
+    }
+    .crosshair-v {
+        left: 50%;
+        top: 0;
+        height: 100%;
+        width: 1px; /* 선 두께 */
+        transform: translateX(-50%);
+    }
+</style>
+
+<PageTitle>Wafer Flat Data</PageTitle>
+
+<MudText Typo="Typo.h4" GutterBottom="true">Wafer Flat Data</MudText>
+
+<MudPaper Class="pa-4 mb-4">
+    <MudGrid Spacing="2" AlignItems="AlignItems.Center">
+        <MudItem xs="6" sm="2" md="1">
+            <MudSelect T="string" Label="Site" Required="true" Value="_selectedSite" ValueChanged="OnSiteChanged" Dense="true" Margin="Margin.Dense">
+                @foreach (var site in _sites)
+                {
+                    <MudSelectItem T="string" Value="@site">@site</MudSelectItem>
+                }
+            </MudSelect>
+        </MudItem>
+        <MudItem xs="6" sm="2" md="1">
+            <MudSelect T="string" Label="SDWT" Value="_selectedSdwt" ValueChanged="OnSdwtChanged" Disabled="@(string.IsNullOrEmpty(_selectedSite))" Dense="true" Margin="Margin.Dense">
+                @foreach (var sdwt in _sdwts)
+                {
+                    <MudSelectItem T="string" Value="@sdwt">@sdwt</MudSelectItem>
+                }
+            </MudSelect>
+        </MudItem>
+        <MudItem xs="12" sm="4" md="1">
+            <MudAutocomplete T="string" Label="EQP ID" Value="_selectedEqpid" ValueChanged="OnEqpidChanged" SearchFunc="SearchEqpids"
+                             ResetValueOnEmptyText="true" CoerceText="false" CoerceValue="false" Dense="true" Margin="Margin.Dense"
+                             Disabled="@(string.IsNullOrEmpty(_selectedSdwt))" />
+        </MudItem>
+        <MudItem xs="12" sm="4" md="1">
+            <MudAutocomplete T="string" Label="Lot ID" Value="_selectedLotId" ValueChanged="OnLotIdChanged" SearchFunc="SearchLotIds"
+                             MaxItems="null" ResetValueOnEmptyText="true" CoerceText="false" CoerceValue="false" Dense="true" Margin="Margin.Dense"
+                             Disabled="@(string.IsNullOrEmpty(_selectedEqpid))" />
+        </MudItem>
+        <MudItem xs="12" sm="4" md="1">
+            <MudAutocomplete T="string" Label="Wafer ID"
+                             Value="_selectedWaferId" ValueChanged="OnWaferIdChanged"
+                             SearchFunc="SearchWaferIds"
+                             ResetValueOnEmptyText="true" CoerceText="false" CoerceValue="false" Dense="true" Margin="Margin.Dense"
+                             Disabled="@(string.IsNullOrEmpty(_selectedLotId))" />
+        </MudItem>
+        <MudItem xs="6" sm="3" md="2">
+            <MudDatePicker Label="Start Date" @bind-Date="_startDate"
+                           MinDate="_minSelectableDate" MaxDate="_endDate" Dense="true" Margin="Margin.Dense"
+                           Disabled="@(string.IsNullOrEmpty(_selectedEqpid))" />
+        </MudItem>
+        <MudItem xs="6" sm="3" md="2">
+            <MudDatePicker Label="End Date" @bind-Date="_endDate"
+                           MinDate="_startDate" MaxDate="_maxSelectableDate" Dense="true" Margin="Margin.Dense"
+                           Disabled="@(string.IsNullOrEmpty(_selectedEqpid))" />
+        </MudItem>
+        <MudItem xs="4" sm="2" md="1">
+            <MudButton Variant="Variant.Filled" Color="Color.Primary" OnClick="SearchData" Disabled="@(string.IsNullOrEmpty(_selectedSite))" FullWidth="true">Search</MudButton>
+        </MudItem>
+        <MudItem xs="4" sm="2" md="1">
+            <MudButton Variant="Variant.Outlined" OnClick="ResetFilters" FullWidth="true">Reset</MudButton>
+        </MudItem>
+        <MudItem xs="4" sm="2" md="1">
+            <MudButton Variant="Variant.Text" OnClick="@(() => _showAdvancedFilters = !_showAdvancedFilters)" FullWidth="true">
+                @(_showAdvancedFilters ? "상세조건 닫기" : "상세조건 열기")
+            </MudButton>
+        </MudItem>
+    </MudGrid>
+
+    <MudCollapse Expanded="_showAdvancedFilters" Class="mt-2">
+        <MudGrid Spacing="2" AlignItems="AlignItems.Center">
+            <MudItem xs="12" sm="6" md="3">
+                <MudSelect T="string" Label="Cassette RCP"
+                           Value="_selectedCassetteRcp" ValueChanged="(string val) => OnAdvancedFilterChanged(val, nameof(_selectedCassetteRcp))"
+                           Disabled="@(string.IsNullOrEmpty(_selectedEqpid))" Clearable="true" Dense="true" Margin="Margin.Dense">
+                    @foreach (var item in _cassetteRcps)
+                    {
+                        <MudSelectItem T="string" Value="@item">@item</MudSelectItem>
+                    }
+                </MudSelect>
+            </MudItem>
+            <MudItem xs="12" sm="6" md="3">
+                <MudSelect T="string" Label="Stage RCP"
+                           Value="_selectedStageRcp" ValueChanged="(string val) => OnAdvancedFilterChanged(val, nameof(_selectedStageRcp))"
+                           Disabled="@(string.IsNullOrEmpty(_selectedEqpid))" Clearable="true" Dense="true" Margin="Margin.Dense">
+                    @foreach (var item in _stageRcps)
+                    {
+                        <MudSelectItem T="string" Value="@item">@item</MudSelectItem>
+                    }
+                </MudSelect>
+            </MudItem>
+            <MudItem xs="12" sm="6" md="3">
+                <MudSelect T="string" Label="Stage Group"
+                           Value="_selectedStageGroup" ValueChanged="(string val) => OnAdvancedFilterChanged(val, nameof(_selectedStageGroup))"
+                           Disabled="@(string.IsNullOrEmpty(_selectedEqpid))" Clearable="true" Dense="true" Margin="Margin.Dense">
+                    @foreach (var item in _stageGroups)
+                    {
+                        <MudSelectItem T="string" Value="@item">@item</MudSelectItem>
+                    }
+                </MudSelect>
+            </MudItem>
+            <MudItem xs="12" sm="6" md="3">
+                <MudSelect T="string" Label="Film"
+                           Value="_selectedFilm" ValueChanged="(string val) => OnAdvancedFilterChanged(val, nameof(_selectedFilm))"
+                           Disabled="@(string.IsNullOrEmpty(_selectedEqpid))" Clearable="true" Dense="true" Margin="Margin.Dense">
+                    @foreach (var item in _films)
+                    {
+                        <MudSelectItem T="string" Value="@item">@item</MudSelectItem>
+                    }
+                </MudSelect>
+            </MudItem>
+        </MudGrid>
+    </MudCollapse>
+</MudPaper>
+
+@if (_showDateRangeWarning)
+{
+    <MudAlert Severity="Severity.Warning" Class="mt-4 mb-4">
+        조회 기간은 30일을 초과할 수 없습니다.
+    </MudAlert>
+}
+
+@if (_isGridVisible)
+{
+    <MudGrid>
+        @* --- 1. Data Results & Statistics 테이블 영역 --- *@
+        <MudItem xs="12" md="8">
+            <MudText Typo="Typo.h6" GutterBottom="true" Class="mt-4">Data Results</MudText>
+
+            <MudDataGrid @ref="_dataGrid" T="WaferFlatDataDto" ServerData="LoadData" Striped="true" Hover="true" Dense="true" Class="compact-grid enforce-widths"
+                         SelectedItemChanged="OnSelectedItemChanged"
+                         RowStyleFunc="RowStyleFunc"
+                         RowsPerPage="8">
+                <Columns>
+                    <PropertyColumn Property="x => x.ServTs" Title="Date Time" Format="yy-MM-dd HH:mm:ss" />
+                    <PropertyColumn Property="x => x.LotId" Title="Lot ID" />
+                    <PropertyColumn Property="x => x.WaferId" Title="Wafer ID" />
+                    <PropertyColumn Property="x => x.CassetteRcp" Title="Cassette RCP" />
+                    <PropertyColumn Property="x => x.StageRcp" Title="Stage RCP" />
+                    <PropertyColumn Property="x => x.StageGroup" Title="Stage Group" />
+                    <PropertyColumn Property="x => x.Film" Title="Film" />
+                    <PropertyColumn Property="x => x.DateTime" Title="EQP Time" Format="yy-MM-dd HH:mm:ss" />
+                </Columns>
+                <PagerContent>
+                    <MudDataGridPager T="WaferFlatDataDto" HideRowsPerPage="true" />
+                </PagerContent>
+            </MudDataGrid>
+
+            @if (_statistics != null)
+            {
+                <MudSimpleTable Dense="true" Hover="true" Class="compact-grid mud-table-sticky-header mt-4">
+                    <thead>
+                        <tr>
+                            <th>Statistics</th>
+                            <th style="text-align: right;">T1(Å)</th>
+                            <th style="text-align: right;">GOF</th>
+                            <th style="text-align: right;">Z(㎛)</th>
+                            <th style="text-align: right;">SRVISZ(㎛)</th>
+                        </tr>
+                    </thead>
+                    <tbody>
+                        <tr>
+                            <td>Max</td>
+                            <td style="text-align: right;">@_statistics.T1.Max.ToString("F3")</td>
+                            <td style="text-align: right;">@_statistics.Gof.Max.ToString("F4")</td>
+                            <td style="text-align: right;">@_statistics.Z.Max.ToString("F4")</td>
+                            <td style="text-align: right;">@_statistics.Srvisz.Max.ToString("F4")</td>
+                        </tr>
+                        <tr>
+                            <td>Min</td>
+                            <td style="text-align: right;">@_statistics.T1.Min.ToString("F3")</td>
+                            <td style="text-align: right;">@_statistics.Gof.Min.ToString("F4")</td>
+                            <td style="text-align: right;">@_statistics.Z.Min.ToString("F4")</td>
+                            <td style="text-align: right;">@_statistics.Srvisz.Min.ToString("F4")</td>
+                        </tr>
+                        <tr>
+                            <td>Range</td>
+                            <td style="text-align: right;">@_statistics.T1.Range.ToString("F3")</td>
+                            <td style="text-align: right;">@_statistics.Gof.Range.ToString("F4")</td>
+                            <td style="text-align: right;">@_statistics.Z.Range.ToString("F4")</td>
+                            <td style="text-align: right;">@_statistics.Srvisz.Range.ToString("F4")</td>
+                        </tr>
+                        <tr>
+                            <td>Mean</td>
+                            <td style="text-align: right;">@_statistics.T1.Mean.ToString("F3")</td>
+                            <td style="text-align: right;">@_statistics.Gof.Mean.ToString("F4")</td>
+                            <td style="text-align: right;">@_statistics.Z.Mean.ToString("F4")</td>
+                            <td style="text-align: right;">@_statistics.Srvisz.Mean.ToString("F4")</td>
+                        </tr>
+                        <tr>
+                            <td>StdD</td>
+                            <td style="text-align: right;">@_statistics.T1.StdDev.ToString("F3")</td>
+                            <td style="text-align: right;">@_statistics.Gof.StdDev.ToString("F4")</td>
+                            <td style="text-align: right;">@_statistics.Z.StdDev.ToString("F4")</td>
+                            <td style="text-align: right;">@_statistics.Srvisz.StdDev.ToString("F4")</td>
+                        </tr>
+                        <tr>
+                            <td>%StdD</td>
+                            <td style="text-align: right;">@_statistics.T1.PercentStdDev.ToString("F3")</td>
+                            <td style="text-align: right;">@_statistics.Gof.PercentStdDev.ToString("F4")</td>
+                            <td style="text-align: right;">@_statistics.Z.PercentStdDev.ToString("F4")</td>
+                            <td style="text-align: right;">@_statistics.Srvisz.PercentStdDev.ToString("F4")</td>
+                        </tr>
+                        <tr>
+                            <td>%NonU</td>
+                            <td style="text-align: right;">@_statistics.T1.PercentNonU.ToString("F3")</td>
+                            <td style="text-align: right;">@_statistics.Gof.PercentNonU.ToString("F4")</td>
+                            <td style="text-align: right;">@_statistics.Z.PercentNonU.ToString("F4")</td>
+                            <td style="text-align: right;">@_statistics.Srvisz.PercentNonU.ToString("F4")</td>
+                        </tr>
+                    </tbody>
+                </MudSimpleTable>
+            }
+        </MudItem>
+
+        @* --- 2. PDF Map Image 영역 --- *@
+        <MudItem xs="12" md="4">
+            @if (_selectedRowItem != null)
+            {
+                <div class="image-container">
+                    <MudText Typo="Typo.h6" GutterBottom="true" Class="mt-4">PDF Map Image</MudText>
+                    <MudPaper Class="pa-4 d-flex justify-center align-center overflow-hidden" Style="width: 95%; aspect-ratio: 1 / 1; border-radius: 50%; margin: auto; position: relative;">
+                        @if (_isPdfImageLoading)
+                        {
+                            <MudProgressCircular Color="Color.Primary" Indeterminate="true" />
+                        }
+                        @* ▼▼▼ [수정] PDF 존재 여부에 따라 UI를 다르게 표시하도록 로직을 변경합니다. ▼▼▼ *@
+                        else if (_pdfExistsForSelectedRow == false)
+                        {
+                            @* PDF가 없는 경우 *@
+                            <img src="/images/no-image-available.png" style="max-width: 50%; max-height: 50%; object-fit: contain; opacity: 0.5;" />
+                        }
+                        else if (_pdfExistsForSelectedRow == true && !string.IsNullOrEmpty(_pdfImageUrl))
+                        {
+                            @* PDF가 있고, 포인트 데이터 행을 클릭한 경우 *@
+                            <img src="@_pdfImageUrl" style="max-width: 100%; max-height: 100%; object-fit: contain; border-radius: 50%;" />
+                            <div class="crosshair-line crosshair-h"></div>
+                            <div class="crosshair-line crosshair-v"></div>
+                        }
+                        else
+                        {
+                            @* PDF가 있지만, 아직 포인트 데이터 행을 클릭하지 않은 경우 *@
+                            <MudText>포인트 데이터를 선택하여 Map 이미지를 확인하세요.</MudText>
+                        }
+                    </MudPaper>
+        
+                    @* --- 텍스트 오버레이 --- *@
+                    @if (!string.IsNullOrEmpty(_pdfImageUrl) && _selectedPointDataRowIndex != -1 && _selectedRowItem != null)
+                    {
+                        <div class="image-overlay-text">
+                            @($"{_selectedRowItem.LotId}_w{_selectedRowItem.WaferId} #{_selectedPointDataRowIndex + 1}")
+                        </div>
+                    }
+                </div>
+            }
+        </MudItem>
+    </MudGrid>
+
+    @* --- 3. 포인트 데이터 테이블 (전체 너비) --- *@
+    @if (_selectedRowItem != null)
+    {
+        <MudGrid>
+            <MudItem xs="12">
+                <MudText Typo="Typo.h6" GutterBottom="true" Class="mt-4">포인트 데이터 (Point Data)</MudText>
+
+                @if (_isPointDataLoading)
+                {
+                    <MudProgressCircular Indeterminate="true" Size="Size.Small" Class="mt-4" />
+                }
+                else if (_pointData != null && _pointData.Headers.Any())
+                {
+                    <MudSimpleTable Dense="true" Hover="true" Class="compact-grid mud-table-sticky-header" Height="300px">
+                        <thead>
+                            <tr>
+                                @foreach (var header in _pointData.Headers)
+                                {
+                                    <th style="text-align: right;">@header</th>
+                                }
+                            </tr>
+                        </thead>
+                        <tbody>
+                            @for (var i = 0; i < _pointData.Data.Count; i++)
+                            {
+                                var rowIndex = i;
+                                @* ▼▼▼ [수정] class 속성을 추가하여 선택된 행의 스타일을 동적으로 적용합니다. ▼▼▼ *@
+                                <tr @onclick="() => LoadPdfImage(rowIndex)" class="@(rowIndex == _selectedPointDataRowIndex ? "selected-point-row" : "point-data-row")">
+                                    @foreach (var cell in _pointData.Data[rowIndex])
+                                    {
+                                        <td style="text-align: right;">
+                                            @FormatValue(cell)
+                                        </td>
+                                    }
+                                </tr>
+                            }
+                        </tbody>
+                    </MudSimpleTable>
+                }
+                else
+                {
+                    <MudText Class="mt-4">선택된 항목에 대한 포인트 데이터가 없습니다.</MudText>
+                }
+            </MudItem>
+        </MudGrid>
+    }
+}
+else
+{
+    <MudAlert Severity="Severity.Info" Class="mt-4">EQP ID를 선택하시면 데이터가 표시됩니다.</MudAlert>
+}
+
+
+@code {
+    private MudDataGrid<WaferFlatDataDto> _dataGrid = default!;
+    private bool _isGridVisible = false;
+    private List<string> _sites = new();
+    private List<string> _sdwts = new();
+    private List<string> _eqpids = new();
+    private List<string> _lotIds = new();
+    private List<string> _waferIds = new();
+    private List<string> _cassetteRcps = new();
+    private List<string> _stageRcps = new();
+    private List<string> _stageGroups = new();
+    private List<string> _films = new();
+    private string? _selectedSite;
+    private string? _selectedSdwt;
+    private string? _selectedEqpid;
+    private string? _selectedLotId;
+    private string? _selectedWaferId;
+    private DateTime? _startDate;
+    private DateTime? _endDate;
+    private DateTime? _minSelectableDate;
+    private DateTime? _maxSelectableDate;
+    private bool _showAdvancedFilters;
+    private string? _selectedCassetteRcp;
+    private string? _selectedStageRcp;
+    private string? _selectedStageGroup;
+    private string? _selectedFilm;
+    private WaferFlatDataDto? _selectedRowItem;
+    private StatisticsDto _statistics = new();
+    private PointDataResponseDto? _pointData;
+    private bool _isPointDataLoading = false;
+    private string? _pdfImageUrl;
+    private bool _isPdfImageLoading = false;
+    private bool _showDateRangeWarning = false;
+    private int _selectedPointDataRowIndex = -1;
+    private bool? _pdfExistsForSelectedRow;
+
+    protected override async Task OnInitializedAsync() => await LoadSites();
+
+    private Func<WaferFlatDataDto, int, string> RowStyleFunc => (item, index) =>
+    {
+        if (_selectedRowItem != null && _selectedRowItem.Equals(item))
+        {
+            return "background-color: #E3F2FD; color: var(--mud-palette-text-primary);";
+        }
+        return string.Empty;
+    };
+
+    private async Task OnSelectedItemChanged(WaferFlatDataDto item)
+    {
+        _selectedRowItem = item;
+        _pdfImageUrl = null;
+        _isPdfImageLoading = false;
+        _selectedPointDataRowIndex = -1;
+        _pdfExistsForSelectedRow = null; // PDF 확인 상태 초기화
+
+        await LoadRowDetails(item);
+    }
+
+    private async Task LoadRowDetails(WaferFlatDataDto? item)
+    {
+        _pdfImageUrl = null;
+        _pdfExistsForSelectedRow = null; // PDF 확인 상태 초기화
+
+        if (item?.LotId == null || item.WaferId == null || item.ServTs == null || item.DateTime == null || item.CassetteRcp == null || item.StageRcp == null || item.StageGroup == null || item.Film == null)
+        {
+            _statistics = new();
+            _pointData = null;
+            StateHasChanged();
+            return;
+        }
+
+        var client = HttpClientFactory.CreateClient("ITM.Dashboard.Api");
+
+        // [핵심] 행 선택 시, 가장 먼저 PDF 존재 여부를 확인합니다.
+        try
+        {
+            var eqpid = Uri.EscapeDataString(item.EqpId);
+            var dateTime = item.DateTime.Value.ToString("o");
+            var checkUrl = $"api/WaferData/checkpdf?eqpid={eqpid}&dateTime={dateTime}";
+            var response = await client.GetFromJsonAsync<PdfCheckResponse>(checkUrl);
+            _pdfExistsForSelectedRow = response?.Exists ?? false;
+        }
+        catch (Exception ex)
+        {
+            Console.WriteLine($"Error checking PDF existence: {ex.Message}");
+            _pdfExistsForSelectedRow = false; // 에러 발생 시, PDF가 없는 것으로 간주
+        }
+
+        // 이후 통계 및 포인트 데이터를 불러옵니다.
+        _pointData = null;
+        _isPointDataLoading = true;
+        StateHasChanged();
+
+        var queryParams = new List<string>
+        {
+            $"lotId={Uri.EscapeDataString(item.LotId)}",
+            $"waferId={item.WaferId}",
+            $"servTs={item.ServTs.Value:o}",
+            $"dateTime={item.DateTime.Value:o}",
+            $"cassetteRcp={Uri.EscapeDataString(item.CassetteRcp)}",
+            $"stageRcp={Uri.EscapeDataString(item.StageRcp)}",
+            $"stageGroup={Uri.EscapeDataString(item.StageGroup)}",
+            $"film={Uri.EscapeDataString(item.Film)}"
+        };
+        var queryString = string.Join("&", queryParams);
+
+        try
+        {
+            var statsTask = client.GetFromJsonAsync<StatisticsDto>($"api/Statistics?{queryString}");
+            var pointDataTask = client.GetFromJsonAsync<PointDataResponseDto>($"api/WaferData/pointdata?{queryString}");
+
+            await Task.WhenAll(statsTask, pointDataTask);
+
+            _statistics = await statsTask ?? new();
+            _pointData = await pointDataTask;
+        }
+        catch (Exception ex)
+        {
+            Console.WriteLine($"Error fetching details: {ex.Message}");
+            _statistics = new();
+            _pointData = null;
+        }
+        finally
+        {
+            _isPointDataLoading = false;
+            StateHasChanged();
+        }
+    }
+
+    private async Task LoadPdfImage(int pointNumber)
+    {
+        _selectedPointDataRowIndex = pointNumber;
+
+        if (_selectedRowItem?.EqpId == null || _selectedRowItem.DateTime == null)
+        {
+            return;
+        }
+
+        _isPdfImageLoading = true;
+        _pdfImageUrl = null;
+        StateHasChanged();
+
+        var client = HttpClientFactory.CreateClient("ITM.Dashboard.Api");
+        var eqpid = Uri.EscapeDataString(_selectedRowItem.EqpId);
+        var dateTime = _selectedRowItem.DateTime.Value.ToString("o");
+        var url = $"api/WaferData/pdfimage?eqpid={eqpid}&dateTime={dateTime}&pointNumber={pointNumber}";
+
+        // ▼▼▼ [수정] try-catch 블록을 추가하여 이미지 로드 실패를 처리합니다.
+        try
+        {
+            var imageData = await client.GetByteArrayAsync(url);
+            var imageType = "image/png";
+            _pdfImageUrl = $"data:{imageType};base64,{Convert.ToBase64String(imageData)}";
+        }
+        catch (HttpRequestException) // API가 404(Not Found) 등을 반환할 때 발생
+        {
+            // PDF가 없으면 _pdfImageUrl을 비워두어 'No Image'가 표시되도록 합니다.
+            _pdfImageUrl = null;
+        }
+        catch (Exception ex)
+        {
+            Console.WriteLine($"Error fetching PDF image: {ex.Message}");
+            _pdfImageUrl = null;
+        }
+        finally
+        {
+            _isPdfImageLoading = false;
+            StateHasChanged();
+        }
+    }
+
+    private string FormatValue(object value)
+    {
+        if (value is JsonElement jsonElement)
+        {
+            if (jsonElement.ValueKind == JsonValueKind.Number)
+            {
+                if (jsonElement.TryGetInt64(out long longValue) && jsonElement.GetRawText().IndexOf('.') == -1)
+                {
+                    return longValue.ToString();
+                }
+                if (jsonElement.TryGetDouble(out double doubleValue))
+                {
+                    return doubleValue.ToString(CultureInfo.InvariantCulture);
+                }
+            }
+            return jsonElement.ToString();
+        }
+
+        if (value is int || value is long || value is short || value is byte ||
+            value is double || value is float || value is decimal)
+        {
+            return Convert.ToString(value, CultureInfo.InvariantCulture);
+        }
+
+        return value?.ToString() ?? string.Empty;
+    }
+
+    // ▼▼▼ [추가] API 응답을 받기 위한 작은 도우미 클래스를 추가합니다.
+    public class PdfCheckResponse
+    {
+        public bool Exists { get; set; }
+    }
+
+    private string BuildFilterQuery()
+    {
+        var queryBuilder = new StringBuilder();
+        if (string.IsNullOrEmpty(_selectedEqpid)) return string.Empty;
+
+        queryBuilder.Append($"eqpid={Uri.EscapeDataString(_selectedEqpid)}");
+
+        if (_startDate.HasValue) queryBuilder.Append($"&startDate={_startDate.Value:yyyy-MM-dd}");
+        if (_endDate.HasValue) queryBuilder.Append($"&endDate={_endDate.Value:yyyy-MM-dd}");
+        if (!string.IsNullOrEmpty(_selectedLotId)) queryBuilder.Append($"&lotId={Uri.EscapeDataString(_selectedLotId)}");
+        if (int.TryParse(_selectedWaferId, out var waferId)) queryBuilder.Append($"&waferId={waferId}");
+        if (!string.IsNullOrEmpty(_selectedCassetteRcp)) queryBuilder.Append($"&cassetteRcp={Uri.EscapeDataString(_selectedCassetteRcp)}");
+        if (!string.IsNullOrEmpty(_selectedStageRcp)) queryBuilder.Append($"&stageRcp={Uri.EscapeDataString(_selectedStageRcp)}");
+        if (!string.IsNullOrEmpty(_selectedStageGroup)) queryBuilder.Append($"&stageGroup={Uri.EscapeDataString(_selectedStageGroup)}");
+        if (!string.IsNullOrEmpty(_selectedFilm)) queryBuilder.Append($"&film={Uri.EscapeDataString(_selectedFilm)}");
+
+        return queryBuilder.ToString();
+    }
+
+    private async Task UpdateAllFilters()
+    {
+        if (string.IsNullOrEmpty(_selectedEqpid)) return;
+        var client = HttpClientFactory.CreateClient("ITM.Dashboard.Api");
+        var query = BuildFilterQuery();
+
+        _lotIds = await client.GetFromJsonAsync<List<string>>($"api/Filters/lotids?{query}") ?? new();
+        _waferIds = await client.GetFromJsonAsync<List<string>>($"api/Filters/waferids?{query}") ?? new();
+        _cassetteRcps = await client.GetFromJsonAsync<List<string>>($"api/Filters/cassettercps?{query}") ?? new();
+        _stageRcps = await client.GetFromJsonAsync<List<string>>($"api/Filters/stagercps?{query}") ?? new();
+        _stageGroups = await client.GetFromJsonAsync<List<string>>($"api/Filters/stagegroups?{query}") ?? new();
+        _films = await client.GetFromJsonAsync<List<string>>($"api/Filters/films?{query}") ?? new();
+
+        if (!string.IsNullOrEmpty(_selectedLotId) && !_lotIds.Contains(_selectedLotId)) _selectedLotId = null;
+        if (!string.IsNullOrEmpty(_selectedWaferId) && !_waferIds.Contains(_selectedWaferId)) _selectedWaferId = null;
+        if (!string.IsNullOrEmpty(_selectedCassetteRcp) && !_cassetteRcps.Contains(_selectedCassetteRcp)) _selectedCassetteRcp = null;
+        if (!string.IsNullOrEmpty(_selectedStageRcp) && !_stageRcps.Contains(_selectedStageRcp)) _selectedStageRcp = null;
+        if (!string.IsNullOrEmpty(_selectedStageGroup) && !_stageGroups.Contains(_selectedStageGroup)) _selectedStageGroup = null;
+        if (!string.IsNullOrEmpty(_selectedFilm) && !_films.Contains(_selectedFilm)) _selectedFilm = null;
+
+        StateHasChanged();
+    }
+
+    private async Task LoadSites()
+    {
+        var client = HttpClientFactory.CreateClient("ITM.Dashboard.Api");
+        _sites = await client.GetFromJsonAsync<List<string>>("api/Filters/sites") ?? new();
+    }
+
+    private async Task OnSiteChanged(string newSite)
+    {
+        _selectedSite = newSite;
+        ResetDependentFilters("site");
+        if (!string.IsNullOrEmpty(_selectedSite))
+        {
+            var client = HttpClientFactory.CreateClient("ITM.Dashboard.Api");
+            _sdwts = await client.GetFromJsonAsync<List<string>>($"api/Filters/sdwts/{_selectedSite}") ?? new();
+        }
+    }
+
+    private async Task OnSdwtChanged(string newSdwt)
+    {
+        _selectedSdwt = newSdwt;
+        ResetDependentFilters("sdwt");
+        if (!string.IsNullOrEmpty(_selectedSdwt))
+        {
+            var client = HttpClientFactory.CreateClient("ITM.Dashboard.Api");
+            _eqpids = await client.GetFromJsonAsync<List<string>>($"api/Filters/eqpids/{_selectedSdwt}") ?? new();
+        }
+    }
+
+    private async Task OnEqpidChanged(string newEqpid)
+    {
+        _selectedEqpid = newEqpid;
+        ResetDependentFilters("eqpid");
+        _isGridVisible = !string.IsNullOrEmpty(_selectedEqpid);
+        _selectedRowItem = null;
+        _statistics = new();
+        _pointData = null;
+        if (_isGridVisible)
+        {
+            await InitializeDateFilters(_selectedEqpid);
+            await UpdateAllFilters();
+            if (_dataGrid is not null) await _dataGrid.ReloadServerData();
+        }
+    }
+
+    private async Task OnLotIdChanged(string newLotId)
+    {
+        if (_selectedLotId == newLotId) return;
+        _selectedLotId = newLotId;
+        ResetDependentFilters("lotid");
+        await UpdateAllFilters();
+    }
+
+    private async Task OnWaferIdChanged(string? newWaferId)
+    {
+        if (_selectedWaferId == newWaferId) return;
+        _selectedWaferId = newWaferId;
+        await UpdateAllFilters();
+    }
+
+    private async Task OnAdvancedFilterChanged(string value, string filterName)
+    {
+        switch (filterName)
+        {
+            case nameof(_selectedCassetteRcp): _selectedCassetteRcp = value; break;
+            case nameof(_selectedStageRcp): _selectedStageRcp = value; break;
+            case nameof(_selectedStageGroup): _selectedStageGroup = value; break;
+            case nameof(_selectedFilm): _selectedFilm = value; break;
+        }
+        await UpdateAllFilters();
+    }
+
+    private async Task InitializeDateFilters(string eqpid)
+    {
+        var client = HttpClientFactory.CreateClient("ITM.Dashboard.Api");
+        var dateRange = await client.GetFromJsonAsync<DateRangeDto>($"api/Filters/daterange?eqpid={eqpid}");
+        if (dateRange is not null)
+        {
+            _minSelectableDate = dateRange.MinDate;
+            _maxSelectableDate = dateRange.MaxDate;
+            _endDate = DateTime.Today;
+            _startDate = DateTime.Today.AddDays(-14);
+
+            if (_startDate < _minSelectableDate)
+            {
+                _startDate = _minSelectableDate;
+            }
+        }
+    }
+
+    private async Task<IEnumerable<string>> SearchEqpids(string value, CancellationToken token)
+    {
+        await Task.Yield();
+        if (string.IsNullOrEmpty(value)) return _eqpids ?? Enumerable.Empty<string>();
+        return _eqpids?.Where(x => x.Contains(value, StringComparison.InvariantCultureIgnoreCase)) ?? Enumerable.Empty<string>();
+    }
+
+    private async Task<IEnumerable<string>> SearchLotIds(string value, CancellationToken token)
+    {
+        await Task.Yield();
+        if (string.IsNullOrEmpty(value)) return _lotIds ?? Enumerable.Empty<string>();
+        if (!string.IsNullOrEmpty(value) && value == _selectedLotId) return _lotIds ?? Enumerable.Empty<string>();
+        return _lotIds?.Where(x => x.Contains(value, StringComparison.InvariantCultureIgnoreCase)) ?? Enumerable.Empty<string>();
+    }
+
+    private async Task<IEnumerable<string>> SearchWaferIds(string value, CancellationToken token)
+    {
+        await Task.Yield();
+        if (string.IsNullOrEmpty(value)) return _waferIds ?? Enumerable.Empty<string>();
+        return _waferIds?.Where(x => x.Contains(value, StringComparison.InvariantCultureIgnoreCase)) ?? Enumerable.Empty<string>();
+    }
+
+    private async Task SearchData()
+    {
+        if (_startDate.HasValue && _endDate.HasValue && (_endDate.Value - _startDate.Value).TotalDays > 30)
+        {
+            _showDateRangeWarning = true;
+            return;
+        }
+
+        _showDateRangeWarning = false;
+
+        if (_dataGrid is not null)
+        {
+            if (_startDate.HasValue && !_endDate.HasValue)
+            {
+                _endDate = DateTime.Today;
+            }
+
+            _selectedRowItem = null;
+            _statistics = new();
+            _pointData = null;
+            await _dataGrid.ReloadServerData();
+        }
+    }
+
+    private void ResetDependentFilters(string level)
+    {
+        if (level == "site") { _selectedSdwt = null; _sdwts.Clear(); }
+        if (level == "site" || level == "sdwt") { _selectedEqpid = null; _eqpids.Clear(); _isGridVisible = false; }
+        if (level == "site" || level == "sdwt" || level == "eqpid") { _selectedLotId = null; }
+        if (level == "site" || level == "sdwt" || level == "eqpid" || level == "lotid") { _selectedWaferId = null; }
+    }
+
+    private async Task ResetFilters()
+    {
+        _selectedSite = null;
+        _selectedSdwt = null;
+        _selectedEqpid = null;
+        _selectedLotId = null;
+        _selectedWaferId = null;
+        _startDate = null;
+        _endDate = null;
+        _minSelectableDate = null;
+        _maxSelectableDate = null;
+        _selectedCassetteRcp = null;
+        _selectedStageRcp = null;
+        _selectedStageGroup = null;
+        _selectedFilm = null;
+        _sdwts.Clear();
+        _eqpids.Clear();
+        _lotIds.Clear();
+        _waferIds.Clear();
+        _cassetteRcps.Clear();
+        _stageRcps.Clear();
+        _stageGroups.Clear();
+        _films.Clear();
+        _isGridVisible = false;
+        _selectedRowItem = null;
+        _statistics = new();
+        _pointData = null;
+        if (_dataGrid is not null)
+        {
+            await _dataGrid.ReloadServerData();
+        }
+        StateHasChanged();
+    }
+
+    private async Task<GridData<WaferFlatDataDto>> LoadData(GridState<WaferFlatDataDto> state)
+    {
+        if (string.IsNullOrEmpty(_selectedEqpid))
+        {
+            return new GridData<WaferFlatDataDto>() { Items = new List<WaferFlatDataDto>(), TotalItems = 0 };
+        }
+
+        var client = HttpClientFactory.CreateClient("ITM.Dashboard.Api");
+        var query = new List<string> { $"page={state.Page}", $"pageSize={state.PageSize}" };
+
+        var sort = state.SortDefinitions.FirstOrDefault();
+        if (sort != null && !string.IsNullOrEmpty(sort.SortBy))
+        {
+            query.Add($"sortLabel={Uri.EscapeDataString(sort.SortBy)}");
+            var direction = sort.Descending ? "Descending" : "Ascending";
+            query.Add($"sortDirection={direction}");
+        }
+
+        var filterQuery = BuildFilterQuery();
+        if (!string.IsNullOrEmpty(filterQuery))
+        {
+            query.Add(filterQuery);
+        }
+
+        var url = $"api/WaferData/flatdata?{string.Join("&", query)}";
+        try
+        {
+            var response = await client.GetAsync(url);
+            if (response.IsSuccessStatusCode)
+            {
+                var content = await response.Content.ReadAsStringAsync();
+                using (var jsonDoc = JsonDocument.Parse(content))
+                {
+                    var root = jsonDoc.RootElement;
+                    var itemsJson = root.GetProperty("items").GetRawText();
+                    var totalItems = root.GetProperty("totalItems").GetInt64();
+                    var options = new JsonSerializerOptions { PropertyNameCaseInsensitive = true };
+                    var items = JsonSerializer.Deserialize<List<WaferFlatDataDto>>(itemsJson, options);
+                    if (items is not null)
+                    {
+                        return new GridData<WaferFlatDataDto>() { Items = items, TotalItems = (int)totalItems };
+                    }
+                }
+            }
+        }
+        catch (Exception ex)
+        {
+            Console.WriteLine($"데이터를 가져오는 중 오류 발생: {ex.Message}");
+        }
+        return new GridData<WaferFlatDataDto>() { Items = new List<WaferFlatDataDto>(), TotalItems = 0 };
+    }
+}
