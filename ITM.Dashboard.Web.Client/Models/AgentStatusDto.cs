@@ -1,4 +1,4 @@
-// ITM.Dashboard.Web.Client.Models/AgentStatusDto.cs
+// ITM.Dashboard.Web.Client/Models/AgentStatusDto.cs
 using System;
 
 namespace ITM.Dashboard.Web.Client.Models
