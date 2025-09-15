@@ -161,7 +161,8 @@ else
     private void ShowChartDialog(AgentStatusDto agent)
     {
         var parameters = new DialogParameters { ["EqpId"] = agent.EqpId };
-        var options = new DialogOptions { MaxWidth = MaxWidth.Large, FullWidth = true };
+        // var options = new DialogOptions { MaxWidth = MaxWidth.Large, FullWidth = true };
+        var options = new DialogOptions { MaxWidth = MaxWidth.Medium };
 
         DialogService.Show<PerformanceChartDialog>("", parameters, options);
     }
