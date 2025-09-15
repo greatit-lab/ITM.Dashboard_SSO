@@ -1,0 +1,293 @@
+@* // ITM.Dashboard.Web.Client/Pages/PerformanceTrend.razor *@
+@page "/performance-trend"
+@using ITM.Dashboard.Web.Client.Models
+@inject IHttpClientFactory HttpClientFactory
+
+<PageTitle>Performance Trend</PageTitle>
+
+<MudText Typo="Typo.h4" GutterBottom="true">장비 성능 트렌드 분석</MudText>
+
+<MudPaper Class="pa-4 mb-4">
+    <MudGrid Spacing="2" AlignItems="AlignItems.Center">
+        <MudItem xs="6" sm="3" md="1">
+            <MudSelect T="string" Label="Site" Value="_selectedSite" ValueChanged="OnSiteChanged" Dense="true" Margin="Margin.Dense" Variant="Variant.Outlined">
+                @foreach (var site in _sites)
+                {
+                    <MudSelectItem T="string" Value="@site">@site</MudSelectItem>
+                }
+            </MudSelect>
+        </MudItem>
+        <MudItem xs="6" sm="3" md="2">
+            <MudSelect T="string" Label="SDWT" Value="_selectedSdwt" ValueChanged="OnSdwtChanged" Disabled="@(string.IsNullOrEmpty(_selectedSite))" Dense="true" Margin="Margin.Dense" Variant="Variant.Outlined">
+                @foreach (var sdwt in _sdwts)
+                {
+                    <MudSelectItem T="string" Value="@sdwt">@sdwt</MudSelectItem>
+                }
+            </MudSelect>
+        </MudItem>
+        <MudItem xs="12" sm="6" md="2">
+            @* ▼▼▼ 1. `@ref`를 추가하여 컴포넌트를 참조할 변수를 지정합니다. ▼▼▼ *@
+            <MudAutocomplete @ref="_eqpIdAutocomplete" T="string" Label="EQP ID (최대 5개)"
+                             Values="_selectedEqpIds"
+                             ValuesChanged="OnSelectedEqpIdsChanged"
+                             SearchFunc="SearchEqpids"
+                             MultiSelection="true" Dense="true" Margin="Margin.Dense" MaxItems="5" Variant="Variant.Outlined"
+                             Disabled="@(string.IsNullOrEmpty(_selectedSite) && string.IsNullOrEmpty(_selectedSdwt))" />
+        </MudItem>
+        <MudItem xs="6" sm="4" md="2">
+            <MudDatePicker Label="Start Date" @bind-Date="_startDate" Dense="true" Margin="Margin.Dense" Variant="Variant.Outlined" />
+        </MudItem>
+        <MudItem xs="6" sm="4" md="2">
+            <MudDatePicker Label="End Date" @bind-Date="_endDate" Dense="true" Margin="Margin.Dense" Variant="Variant.Outlined" />
+        </MudItem>
+        <MudItem xs="12" sm="4" md="1">
+            <MudSelect T="int" Label="데이터 간격" @bind-Value="_selectedInterval" Dense="true" Margin="Margin.Dense" Variant="Variant.Outlined">
+                <MudSelectItem T="int" Value="5">5분</MudSelectItem>
+                <MudSelectItem T="int" Value="10">10분</MudSelectItem>
+                <MudSelectItem T="int" Value="30">30분</MudSelectItem>
+                <MudSelectItem T="int" Value="60">1시간</MudSelectItem>
+            </MudSelect>
+        </MudItem>
+        <MudItem xs="6" sm="6" md="1">
+            @* ▼▼▼ [수정] Disabled 조건을 null-safe하게 변경합니다. ▼▼▼ *@
+            <MudButton Variant="Variant.Filled" Color="Color.Primary" OnClick="OnSearchClicked" Disabled="@(_selectedEqpIds == null || !_selectedEqpIds.Any())" FullWidth="true">조회</MudButton>
+        </MudItem>
+        <MudItem xs="6" sm="6" md="1">
+            <MudButton Variant="Variant.Outlined" OnClick="ResetFilters" FullWidth="true">Reset</MudButton>
+        </MudItem>
+    </MudGrid>
+</MudPaper>
+
+@* 디버깅용 코드는 이제 제거합니다. *@
+
+@if (_isLoading)
+{
+    <MudProgressCircular Color="Color.Primary" Indeterminate="true" />
+}
+else if (_isSearched)
+{
+    @* ... 차트 및 테이블 UI ... *@
+}
+else
+{
+    <MudAlert Severity="Severity.Info">조회할 장비를 선택 후, 조회 버튼을 클릭하세요.</MudAlert>
+}
+
+
+@code {
+    private bool _isLoading = false;
+    private bool _isSearched = false;
+
+    // ▼▼▼ 2. `@ref`와 연결될 변수를 선언합니다. ▼▼▼
+    private MudAutocomplete<string> _eqpIdAutocomplete;
+
+    private string? _selectedSite;
+    private string? _selectedSdwt;
+    private IEnumerable<string> _selectedEqpIds = new List<string>();
+    private DateTime? _startDate = DateTime.Now.Date.AddDays(-1);
+    private DateTime? _endDate = DateTime.Now.Date;
+    private int _selectedInterval = 5;
+
+    private List<string> _sites = new();
+    private List<string> _sdwts = new();
+    private List<string> _availableEqpIds = new();
+
+    private List<ChartSeries> _cpuSeries = new();
+    private List<ChartSeries> _memorySeries = new();
+    private string[] _chartXAxisLabels = Array.Empty<string>();
+    private ChartOptions _chartOptions = new ChartOptions { YAxisTicks = 1, YAxisFormat = "F1" };
+
+    private Dictionary<string, (double CpuAvg, double CpuMax, double MemoryAvg, double MemoryMax)> _summaryData = new();
+
+    protected override async Task OnInitializedAsync()
+    {
+        var client = HttpClientFactory.CreateClient("ITM.Dashboard.Api");
+        _sites = await client.GetFromJsonAsync<List<string>>("api/Filters/sites") ?? new();
+    }
+
+    private void OnSelectedEqpIdsChanged(IEnumerable<string> values)
+    {
+        _selectedEqpIds = values;
+        StateHasChanged();
+    }
+
+    private async Task OnSiteChanged(string newSite)
+    {
+        _selectedSite = newSite;
+        _selectedSdwt = null;
+        _sdwts.Clear();
+
+        // ▼▼▼ 기존: await _eqpIdAutocomplete.Clear(); ▼▼▼
+        if (_eqpIdAutocomplete != null)
+        {
+            _selectedEqpIds = new List<string>(); // 선택값 직접 초기화
+            await Task.Yield(); // 비동기 컨텍스트 유지
+        }
+        _availableEqpIds.Clear();
+
+        var client = HttpClientFactory.CreateClient("ITM.Dashboard.Api");
+        if (!string.IsNullOrEmpty(_selectedSite))
+        {
+            _sdwts = await client.GetFromJsonAsync<List<string>>($"api/Filters/sdwts/{_selectedSite}") ?? new();
+            _availableEqpIds = await client.GetFromJsonAsync<List<string>>($"api/Filters/eqpidsbysite/{_selectedSite}") ?? new();
+        }
+        StateHasChanged();
+    }
+
+    private async Task OnSdwtChanged(string newSdwt)
+    {
+        _selectedSdwt = newSdwt;
+
+        // ▼▼▼ 기존: await _eqpIdAutocomplete.Clear(); ▼▼▼
+        if (_eqpIdAutocomplete != null)
+        {
+            _selectedEqpIds = new List<string>(); // 선택값 직접 초기화
+            await Task.Yield();
+        }
+        _availableEqpIds.Clear();
+
+        var client = HttpClientFactory.CreateClient("ITM.Dashboard.Api");
+        if (!string.IsNullOrEmpty(_selectedSdwt))
+        {
+            _availableEqpIds = await client.GetFromJsonAsync<List<string>>($"api/Filters/eqpids/{_selectedSdwt}") ?? new();
+        }
+        else if (!string.IsNullOrEmpty(_selectedSite))
+        {
+            _availableEqpIds = await client.GetFromJsonAsync<List<string>>($"api/Filters/eqpidsbysite/{_selectedSite}") ?? new();
+        }
+        StateHasChanged();
+    }
+
+    private async Task<IEnumerable<string>> SearchEqpids(string value, CancellationToken token)
+    {
+        await Task.Yield();
+        if (string.IsNullOrEmpty(value))
+            return _availableEqpIds.Take(10);
+
+        return _availableEqpIds.Where(x => x.Contains(value, StringComparison.InvariantCultureIgnoreCase));
+    }
+
+    private async Task OnSearchClicked()
+    {
+        if (_startDate == null || _endDate == null) return;
+
+        _isLoading = true;
+        _isSearched = true;
+        StateHasChanged();
+
+        var client = HttpClientFactory.CreateClient("ITM.Dashboard.Api");
+
+        var query = new System.Text.StringBuilder();
+        query.Append($"startDate={Uri.EscapeDataString(_startDate.Value.ToString("o"))}");
+        query.Append($"&endDate={Uri.EscapeDataString(_endDate.Value.ToString("o"))}");
+        query.Append($"&intervalMinutes={_selectedInterval}");
+        foreach (var id in _selectedEqpIds)
+        {
+            query.Append($"&eqpids={Uri.EscapeDataString(id)}");
+        }
+
+        var data = await client.GetFromJsonAsync<List<PerformanceDataPointWithEqpIdDto>>($"api/PerformanceAnalytics/history?{query}");
+
+        if (data != null && data.Any())
+        {
+            PrepareChartData(data);
+            CalculateSummary(data);
+        }
+        else
+        {
+            ClearResults();
+        }
+
+        _isLoading = false;
+        StateHasChanged();
+    }
+
+    private void PrepareChartData(List<PerformanceDataPointWithEqpIdDto> data)
+    {
+        _cpuSeries.Clear();
+        _memorySeries.Clear();
+
+        var groupedData = data.GroupBy(d => d.EqpId);
+
+        _chartXAxisLabels = data.Select(d => d.Timestamp)
+                                .Distinct()
+                                .OrderBy(ts => ts)
+                                .Select(ts => ts.ToString("MM-dd HH:mm"))
+                                .ToArray();
+
+        foreach (var group in groupedData)
+        {
+            var cpuData = new List<double?>();
+            var memData = new List<double?>();
+            var dataLookup = group.ToDictionary(g => g.Timestamp);
+
+            foreach (var labelTs in data.Select(d => d.Timestamp).Distinct().OrderBy(ts => ts))
+            {
+                if (dataLookup.TryGetValue(labelTs, out var point))
+                {
+                    cpuData.Add(point.CpuUsage);
+                    memData.Add(point.MemoryUsage);
+                }
+                else
+                {
+                    cpuData.Add(null);
+                    memData.Add(null);
+                }
+            }
+
+            _cpuSeries.Add(new ChartSeries { Name = group.Key, Data = cpuData.Select(d => d ?? double.NaN).ToArray() });
+            _memorySeries.Add(new ChartSeries { Name = group.Key, Data = memData.Select(d => d ?? double.NaN).ToArray() });
+        }
+    }
+
+    private void CalculateSummary(List<PerformanceDataPointWithEqpIdDto> data)
+    {
+        _summaryData.Clear();
+        var groupedData = data.GroupBy(d => d.EqpId);
+
+        foreach (var group in groupedData)
+        {
+            var eqpId = group.Key;
+            _summaryData[eqpId] = (
+                group.Average(d => d.CpuUsage),
+                group.Max(d => d.CpuUsage),
+                group.Average(d => d.MemoryUsage),
+                group.Max(d => d.MemoryUsage)
+            );
+        }
+    }
+
+    private async Task ResetFilters()
+    {
+        // 1. 모든 필터 선택 변수를 초기 상태로 되돌립니다.
+        _selectedSite = null;
+        _selectedSdwt = null;
+        _startDate = DateTime.Now.Date.AddDays(-1);
+        _endDate = DateTime.Now.Date;
+        _selectedInterval = 5;
+
+        // 2. 선택에 따라 동적으로 채워지는 목록들을 비웁니다.
+        _sdwts.Clear();
+        _availableEqpIds.Clear();
+
+        if (_eqpIdAutocomplete != null)
+        {
+            _selectedEqpIds = new List<string>(); // 선택값 직접 초기화
+            await Task.Yield();
+        }
+
+        ClearResults();
+        _isSearched = false;
+
+        // 4. UI를 갱신하여 변경사항을 즉시 반영합니다.
+        StateHasChanged();
+    }
+
+    private void ClearResults()
+    {
+        _cpuSeries.Clear();
+        _memorySeries.Clear();
+        _chartXAxisLabels = Array.Empty<string>();
+        _summaryData.Clear();
+    }
+}
