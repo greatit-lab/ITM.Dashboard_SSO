@@ -1,0 +1,183 @@
+@* ITM.Dashboard.Web.Client/Pages/PreAlignAnalytics.razor *@
+@page "/prealign-analytics"
+@using ITM.Dashboard.Web.Client.Models
+@inject IHttpClientFactory HttpClientFactory
+
+<PageTitle>Pre-Align Analytics</PageTitle>
+
+<MudText Typo="Typo.h4" GutterBottom="true">Pre-Align 데이터 시각화</MudText>
+
+<MudPaper Class="pa-4 mb-4">
+    <MudGrid Spacing="2" AlignItems="AlignItems.Center">
+        <MudItem xs="6" sm="4" md="2">
+            <MudSelect T="string" Label="Site" Value="_selectedSite" ValueChanged="OnSiteChanged" Dense="true" Margin="Margin.Dense" Variant="Variant.Outlined">
+                @foreach (var site in _sites)
+                {
+                    <MudSelectItem T="string" Value="@site">@site</MudSelectItem>
+                }
+            </MudSelect>
+        </MudItem>
+        <MudItem xs="6" sm="4" md="2">
+            <MudSelect T="string" Label="SDWT" Value="_selectedSdwt" ValueChanged="OnSdwtChanged" Disabled="@(string.IsNullOrEmpty(_selectedSite))" Dense="true" Margin="Margin.Dense" Variant="Variant.Outlined">
+                @foreach (var sdwt in _sdwts)
+                {
+                    <MudSelectItem T="string" Value="@sdwt">@sdwt</MudSelectItem>
+                }
+            </MudSelect>
+        </MudItem>
+        <MudItem xs="12" sm="4" md="3">
+            <MudAutocomplete T="string" Label="EQP ID" @bind-Value="_selectedEqpId" SearchFunc="SearchEqpids"
+                             Dense="true" Margin="Margin.Dense" Variant="Variant.Outlined"
+                             Disabled="@(string.IsNullOrEmpty(_selectedSite))" />
+        </MudItem>
+        <MudItem xs="6" sm="6" md="2">
+            <MudDatePicker Label="Start Date" @bind-Date="_startDate" Dense="true" Margin="Margin.Dense" Variant="Variant.Outlined" />
+        </MudItem>
+        <MudItem xs="6" sm="6" md="2">
+            <MudDatePicker Label="End Date" @bind-Date="_endDate" Dense="true" Margin="Margin.Dense" Variant="Variant.Outlined" />
+        </MudItem>
+        <MudItem xs="12" sm="12" md="1">
+            <MudButton Variant="Variant.Filled" Color="Color.Primary" OnClick="OnSearchClicked" Disabled="@(string.IsNullOrEmpty(_selectedEqpId))" FullWidth="true">조회</MudButton>
+        </MudItem>
+    </MudGrid>
+</MudPaper>
+
+@if (_isLoading)
+{
+    <MudProgressCircular Color="Color.Primary" Indeterminate="true" />
+}
+else if (_isSearched)
+{
+    <MudGrid Spacing="3">
+        <MudItem xs="12" md="6">
+            <MudPaper Class="pa-4" Style="height:100%">
+                @* [수정] 차트 제목을 'X-Y 편차 트렌드'로 변경하고, ChartType을 Line으로 지정합니다. *@
+                <MudText Typo="Typo.h6" GutterBottom="true">X-Y 편차 트렌드</MudText>
+                <MudChart ChartType="ChartType.Line" ChartSeries="_xyDeviationSeries" XAxisLabels="_chartXAxisLabels" Height="400px" ChartOptions="_lineOptions" />
+            </MudPaper>
+        </MudItem>
+        <MudItem xs="12" md="6">
+            <MudPaper Class="pa-4" Style="height:100%">
+                <MudText Typo="Typo.h6" GutterBottom="true">Notch 값 트렌드</MudText>
+                <MudChart ChartType="ChartType.Line" ChartSeries="_notchSeries" XAxisLabels="_chartXAxisLabels" Height="400px" ChartOptions="_lineOptions" />
+            </MudPaper>
+        </MudItem>
+    </MudGrid>
+}
+else
+{
+    <MudAlert Severity="Severity.Info">조회할 장비를 선택 후, 조회 버튼을 클릭하세요.</MudAlert>
+}
+
+@code {
+    private bool _isLoading = false;
+    private bool _isSearched = false;
+
+    // 필터
+    private string? _selectedSite;
+    private string? _selectedSdwt;
+    private string? _selectedEqpId;
+    private DateTime? _startDate = DateTime.Now.Date.AddDays(-6);
+    private DateTime? _endDate = DateTime.Now.Date;
+
+    private List<string> _sites = new();
+    private List<string> _sdwts = new();
+    private List<string> _availableEqpIds = new();
+
+    // 차트 데이터
+    private List<ChartSeries> _xyDeviationSeries = new(); // [수정] X-Y 편차 데이터를 담을 변수
+    private List<ChartSeries> _notchSeries = new();
+    private string[] _chartXAxisLabels = Array.Empty<string>();
+    private ChartOptions _lineOptions = new();
+
+    protected override async Task OnInitializedAsync()
+    {
+        var client = HttpClientFactory.CreateClient("ITM.Dashboard.Api");
+        _sites = await client.GetFromJsonAsync<List<string>>("api/Filters/sites") ?? new();
+    }
+
+    private async Task OnSiteChanged(string newSite)
+    {
+        _selectedSite = newSite;
+        _selectedSdwt = null;
+        _sdwts.Clear();
+        _selectedEqpId = null;
+        _availableEqpIds.Clear();
+
+        if (!string.IsNullOrEmpty(_selectedSite))
+        {
+            var client = HttpClientFactory.CreateClient("ITM.Dashboard.Api");
+            _sdwts = await client.GetFromJsonAsync<List<string>>($"api/Filters/sdwts/{_selectedSite}") ?? new();
+            _availableEqpIds = await client.GetFromJsonAsync<List<string>>($"api/Filters/eqpidsbysite/{_selectedSite}") ?? new();
+        }
+    }
+
+    private async Task OnSdwtChanged(string newSdwt)
+    {
+        _selectedSdwt = newSdwt;
+        _selectedEqpId = null;
+        _availableEqpIds.Clear();
+
+        var client = HttpClientFactory.CreateClient("ITM.Dashboard.Api");
+        if (!string.IsNullOrEmpty(_selectedSdwt))
+        {
+            _availableEqpIds = await client.GetFromJsonAsync<List<string>>($"api/Filters/eqpids/{_selectedSdwt}") ?? new();
+        }
+        else if (!string.IsNullOrEmpty(_selectedSite))
+        {
+            _availableEqpIds = await client.GetFromJsonAsync<List<string>>($"api/Filters/eqpidsbysite/{_selectedSite}") ?? new();
+        }
+    }
+
+    private async Task<IEnumerable<string>> SearchEqpids(string value, CancellationToken token)
+    {
+        await Task.Yield();
+        if (string.IsNullOrEmpty(value)) return _availableEqpIds;
+        return _availableEqpIds.Where(x => x.Contains(value, StringComparison.InvariantCultureIgnoreCase));
+    }
+
+    private async Task OnSearchClicked()
+    {
+        if (string.IsNullOrEmpty(_selectedEqpId) || _startDate == null || _endDate == null) return;
+
+        _isLoading = true;
+        _isSearched = true;
+        StateHasChanged();
+
+        var client = HttpClientFactory.CreateClient("ITM.Dashboard.Api");
+        var query = $"eqpid={Uri.EscapeDataString(_selectedEqpId)}&startDate={_startDate.Value:o}&endDate={_endDate.Value:o}";
+        var data = await client.GetFromJsonAsync<List<PreAlignDataDto>>($"api/PreAlignAnalytics/data?{query}");
+
+        if (data != null && data.Any())
+        {
+            PrepareChartData(data);
+        }
+        else
+        {
+            _xyDeviationSeries.Clear();
+            _notchSeries.Clear();
+        }
+
+        _isLoading = false;
+        StateHasChanged();
+    }
+
+    private void PrepareChartData(List<PreAlignDataDto> data)
+    {
+        // [수정] X-Y 편차 트렌드 차트 데이터를 준비합니다. (두 개의 시리즈)
+        _xyDeviationSeries = new List<ChartSeries>
+        {
+            new ChartSeries { Name = "Xmm", Data = data.Select(d => d.Xmm).ToArray() },
+            new ChartSeries { Name = "Ymm", Data = data.Select(d => d.Ymm).ToArray() }
+        };
+
+        // Notch 트렌드 차트 데이터 준비
+        _notchSeries = new List<ChartSeries>
+        {
+            new ChartSeries { Name = "Notch", Data = data.Select(d => d.Notch).ToArray() }
+        };
+
+        // X축 레이블은 두 차트가 공통으로 사용합니다.
+        _chartXAxisLabels = data.Select(d => d.Timestamp.ToString("MM-dd HH:mm")).ToArray();
+    }
+}
