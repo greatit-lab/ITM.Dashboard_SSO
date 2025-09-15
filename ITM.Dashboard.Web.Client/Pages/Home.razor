@@ -1,6 +1,182 @@
 @page "/"
+@using ITM.Dashboard.Web.Client.Models
+@using ITM.Dashboard.Web.Client.Shared
+@inject IHttpClientFactory HttpClientFactory
+@inject IDialogService DialogService
 
-<PageTitle>Home</PageTitle>
+<PageTitle>Dashboard Home</PageTitle>
 
-<MudText Typo="Typo.h3" GutterBottom="true">Welcome to ITM Dashboard</MudText>
-<MudText Class="mb-4">좌측 사이드바에서 메뉴를 선택하여 시작하세요.</MudText>
+<MudText Typo="Typo.h4" GutterBottom="true">종합 현황 대시보드</MudText>
+
+<MudPaper Class="pa-4 mb-4">
+    <MudGrid Spacing="2" AlignItems="AlignItems.Center">
+        <MudItem xs="6" sm="3" md="2">
+            <MudSelect T="string" Label="Site" Value="_selectedSite" ValueChanged="OnSiteChanged" Dense="true" Margin="Margin.Dense" Clearable="true">
+                @foreach (var site in _sites)
+                {
+                    <MudSelectItem T="string" Value="@site">@site</MudSelectItem>
+                }
+            </MudSelect>
+        </MudItem>
+        <MudItem xs="6" sm="3" md="2">
+            <MudSelect T="string" Label="SDWT" Value="_selectedSdwt" ValueChanged="OnSdwtChanged" Disabled="@(string.IsNullOrEmpty(_selectedSite))" Dense="true" Margin="Margin.Dense" Clearable="true">
+                @foreach (var sdwt in _sdwts)
+                {
+                    <MudSelectItem T="string" Value="@sdwt">@sdwt</MudSelectItem>
+                }
+            </MudSelect>
+        </MudItem>
+    </MudGrid>
+</MudPaper>
+
+@if (_loading)
+{
+    <MudProgressCircular Color="Color.Primary" Indeterminate="true" />
+}
+else
+{
+    <MudGrid Spacing="3">
+        @* --- 1. 시스템 현황 요약 --- *@
+        <MudItem xs="12" sm="6" md="3">
+            <MudPaper Class="pa-4" Style="height:100%"><MudText Typo="Typo.subtitle1">총 모니터링 장비</MudText><MudText Typo="Typo.h4">@_summary?.TotalEqpCount</MudText></MudPaper>
+        </MudItem>
+        <MudItem xs="12" sm="6" md="3">
+            <MudPaper Class="pa-4" Style="height:100%"><MudText Typo="Typo.subtitle1">온라인 에이전트</MudText><MudText Typo="Typo.h4" Color="@(_summary?.OnlineAgentCount > 0 ? Color.Success : Color.Default)">@_summary?.OnlineAgentCount</MudText></MudPaper>
+        </MudItem>
+        <MudItem xs="12" sm="6" md="3">
+            <MudPaper Class="pa-4" Style="height:100%"><MudText Typo="Typo.subtitle1">오늘 발생 오류</MudText><MudText Typo="Typo.h4" Color="@(_summary?.TodayErrorCount > 0 ? Color.Error : Color.Default)">@_summary?.TodayErrorCount</MudText></MudPaper>
+        </MudItem>
+        <MudItem xs="12" sm="6" md="3">
+            <MudPaper Class="pa-4" Style="height:100%"><MudText Typo="Typo.subtitle1">오늘 처리 데이터</MudText><MudText Typo="Typo.h4">@_summary?.TodayDataCount</MudText></MudPaper>
+        </MudItem>
+
+        @* --- 2. 에이전트 상태 모니터링 --- *@
+        <MudItem xs="12">
+            <MudTable Items="_agentStatusList" Hover="true" Striped="true" Dense="true" RowsPerPage="10"
+                      OnRowClick="@((TableRowClickEventArgs<AgentStatusDto> args) => ShowChartDialog(args.Item))">
+                <HeaderContent>
+                    <MudTh>상태</MudTh><MudTh>EQP ID</MudTh><MudTh>Type</MudTh><MudTh>IP 주소</MudTh>
+                    <MudTh>PC 이름</MudTh><MudTh>운영체제(OS)</MudTh><MudTh>Locale</MudTh><MudTh>Timezone</MudTh>
+                    <MudTh>CPU / Memory</MudTh><MudTh>마지막 접속</MudTh><MudTh>에이전트 버전</MudTh>
+                </HeaderContent>
+                <RowTemplate>
+                    <MudTd DataLabel="상태">
+                        @if (context.IsOnline) { <MudChip T="object" Icon="@Icons.Material.Filled.CheckCircle" Color="Color.Success" Size="Size.Small">온라인</MudChip> }
+                        else { <MudChip T="object" Icon="@Icons.Material.Filled.Error" Color="Color.Error" Size="Size.Small">오프라인</MudChip> }
+                    </MudTd>
+                    <MudTd DataLabel="EQP ID">@context.EqpId</MudTd><MudTd DataLabel="Type">@context.Type</MudTd><MudTd DataLabel="IP 주소">@context.IpAddress</MudTd>
+                    <MudTd DataLabel="PC 이름">@context.PcName</MudTd><MudTd DataLabel="운영체제(OS)">@FormatOperatingSystem(context.Os, context.SystemType)</MudTd>
+                    <MudTd DataLabel="Locale">@context.Locale</MudTd><MudTd DataLabel="Timezone">@FormatTimezone(context.Timezone)</MudTd>
+                    <MudTd DataLabel="CPU/Memory">
+                        <MudProgressLinear Color="Color.Primary" Value="@context.CpuUsage" /><MudProgressLinear Color="Color.Info" Value="@context.MemoryUsage" Class="mt-1" />
+                    </MudTd>
+                    <MudTd DataLabel="마지막 접속">@context.LastContact?.ToString("yy-MM-dd HH:mm:ss")</MudTd><MudTd DataLabel="에이전트 버전">@context.AppVersion</MudTd>
+                </RowTemplate>
+                <PagerContent><MudTablePager /></PagerContent>
+                <NoRecordsContent><MudText>조회된 에이전트 정보가 없습니다.</MudText></NoRecordsContent>
+            </MudTable>
+        </MudItem>
+    </MudGrid>
+}
+
+@code {
+    private bool _loading = true;
+    private DashboardSummaryDto? _summary;
+    private List<AgentStatusDto> _agentStatusList = new();
+    private List<string> _sites = new();
+    private List<string> _sdwts = new();
+    private string? _selectedSite;
+    private string? _selectedSdwt;
+
+    protected override async Task OnInitializedAsync()
+    {
+        await LoadSites();
+        await LoadDashboardData();
+    }
+
+    private async Task LoadSites()
+    {
+        var client = HttpClientFactory.CreateClient("ITM.Dashboard.Api");
+        _sites = await client.GetFromJsonAsync<List<string>>("api/Filters/sites") ?? new();
+    }
+
+    private async Task OnSiteChanged(string newSite)
+    {
+        _selectedSite = newSite;
+        _selectedSdwt = null;
+        _sdwts.Clear();
+        if (!string.IsNullOrEmpty(_selectedSite))
+        {
+            var client = HttpClientFactory.CreateClient("ITM.Dashboard.Api");
+            _sdwts = await client.GetFromJsonAsync<List<string>>($"api/Filters/sdwts/{_selectedSite}") ?? new();
+        }
+        await LoadDashboardData();
+    }
+
+    private async Task OnSdwtChanged(string newSdwt)
+    {
+        _selectedSdwt = newSdwt;
+        await LoadDashboardData();
+    }
+
+    private async Task LoadDashboardData()
+    {
+        _loading = true;
+        StateHasChanged();
+        
+        var client = HttpClientFactory.CreateClient("ITM.Dashboard.Api");
+        var query = new List<string>();
+        if (!string.IsNullOrEmpty(_selectedSite)) query.Add($"site={Uri.EscapeDataString(_selectedSite)}");
+        if (!string.IsNullOrEmpty(_selectedSdwt)) query.Add($"sdwt={Uri.EscapeDataString(_selectedSdwt)}");
+        var queryString = string.Join("&", query);
+
+        try
+        {
+            var summaryTask = client.GetFromJsonAsync<DashboardSummaryDto>($"api/dashboard/summary?{queryString}");
+            var statusTask = client.GetFromJsonAsync<List<AgentStatusDto>>($"api/dashboard/agentstatus?{queryString}");
+            await Task.WhenAll(summaryTask, statusTask);
+            _summary = await summaryTask;
+            _agentStatusList = await statusTask ?? new();
+        }
+        catch (Exception ex)
+        {
+            Console.WriteLine($"데이터 로드 실패: {ex.Message}");
+            _summary = new DashboardSummaryDto();
+            _agentStatusList = new List<AgentStatusDto>();
+        }
+        finally
+        {
+            _loading = false;
+            StateHasChanged();
+        }
+    }
+    
+    // [핵심 수정] 행 클릭 시 모달 창을 띄우는 메서드
+    private void ShowChartDialog(AgentStatusDto agent)
+    {
+        var parameters = new DialogParameters { ["EqpId"] = agent.EqpId };
+        var options = new DialogOptions { MaxWidth = MaxWidth.Large, FullWidth = true };
+
+        DialogService.Show<PerformanceChartDialog>("", parameters, options);
+    }
+    
+    private string FormatOperatingSystem(string os, string systemType)
+    {
+        if (string.IsNullOrEmpty(os)) return systemType;
+        var formattedOs = os.Replace("Microsoft Windows", "Windows").Replace("Professional", "Pro").Replace("Enterprise", "Ent").Replace("Server", "Svr");
+        var formattedSystemType = systemType.Replace("-bit", "bit");
+        return $"{formattedOs} {formattedSystemType}".Trim();
+    }
+
+    private string FormatTimezone(string timezone)
+    {
+        if (string.IsNullOrEmpty(timezone)) return string.Empty;
+        switch (timezone)
+        {
+            case "Korea Standard Time": return "KST";
+            case "China Standard Time": return "CST";
+            case "Singapore Standard Time": return "SGT";
+            default: return timezone;
+        }
+    }
+}
