@@ -2,10 +2,11 @@
 @inherits LayoutComponentBase
 @using ITM.Dashboard.Web.Client.Themes
 
-<MudThemeProvider @bind-IsDarkMode="@_isDarkMode" Theme="MainTheme.DarkTheme" />
+@* [수정] Theme 속성에 새로 만든 테마 객체를 바인딩합니다. *@
+<MudThemeProvider @bind-IsDarkMode="@_isDarkMode" Theme="MainTheme.MainITMTheme" />
 <MudDialogProvider />
 <MudSnackbarProvider />
-<MudPopoverProvider /> @* <-- [수정] 이 줄을 추가하여 오류를 해결합니다. *@
+<MudPopoverProvider />
 
 <MudLayout>
     <MudAppBar Elevation="1">
@@ -19,7 +20,8 @@
     <MudDrawer @bind-Open="_drawerOpen" ClipMode="DrawerClipMode.Always" Elevation="2">
         <NavMenu />
     </MudDrawer>
-    <MudMainContent Class="main-content">
+    @* [수정] MainContent에 테마 클래스를 적용합니다. *@
+    <MudMainContent Class="@(_isDarkMode ? "dark-theme-main-content" : "light-theme-main-content")">
         <MudContainer MaxWidth="MaxWidth.ExtraExtraLarge" Class="my-4 pt-4">
             @Body
         </MudContainer>
@@ -28,7 +30,7 @@
 
 @code {
     private bool _drawerOpen = true;
-    private bool _isDarkMode = true;
+    private bool _isDarkMode = true; // 기본을 다크 모드로 설정
 
     private void DrawerToggle()
     {
