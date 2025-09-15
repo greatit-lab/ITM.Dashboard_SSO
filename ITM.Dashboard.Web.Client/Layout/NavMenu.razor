@@ -1,6 +1,11 @@
 @* ITM.Dashboard.Web.Client/Layout/NavMenu.razor *@
+<div class="pa-4">
+    <MudText Typo="Typo.h6" Class="mb-2">ITM Dashboard</MudText>
+    <MudDivider />
+</div>
 <MudNavMenu>
-    <MudNavLink Href="" Match="NavLinkMatch.All" Icon="@Icons.Material.Filled.Home">Home</MudNavLink>
-    <MudNavLink Href="waferflatdata" Icon="@Icons.Material.Filled.Analytics">Wafer Flat Data</MudNavLink>
-    <MudNavLink Href="error-analytics" Icon="@Icons.Material.Filled.Warning">Error Analytics</MudNavLink>
+    <MudNavLink Href="" Match="NavLinkMatch.All" Icon="@Icons.Material.Rounded.Home">Home</MudNavLink>
+    <MudNavLink Href="waferflatdata" Icon="@Icons.Material.Rounded.Analytics">Wafer Flat Data</MudNavLink>
+    <MudNavLink Href="error-analytics" Icon="@Icons.Material.Rounded.Warning">Error Analytics</MudNavLink>
+    <MudNavLink Href="performance-trend" Icon="@Icons.Material.Rounded.Insights">Performance Trend</MudNavLink> @*// [추가] 이 줄을 추가*@
 </MudNavMenu>
