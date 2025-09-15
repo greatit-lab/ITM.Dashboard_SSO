@@ -61,8 +61,14 @@ else
                 </HeaderContent>
                 <RowTemplate>
                     <MudTd DataLabel="상태">
-                        @if (context.IsOnline) { <MudChip T="object" Icon="@Icons.Material.Filled.CheckCircle" Color="Color.Success" Size="Size.Small">온라인</MudChip> }
-                        else { <MudChip T="object" Icon="@Icons.Material.Filled.Error" Color="Color.Error" Size="Size.Small">오프라인</MudChip> }
+                        @if (context.IsOnline)
+                        {
+                            <MudChip T="object" Icon="@Icons.Material.Filled.CheckCircle" Color="Color.Success" Size="Size.Small">온라인</MudChip>
+                        }
+                        else
+                        {
+                            <MudChip T="object" Icon="@Icons.Material.Filled.Error" Color="Color.Error" Size="Size.Small">오프라인</MudChip>
+                        }
                     </MudTd>
                     <MudTd DataLabel="EQP ID">@context.EqpId</MudTd><MudTd DataLabel="Type">@context.Type</MudTd><MudTd DataLabel="IP 주소">@context.IpAddress</MudTd>
                     <MudTd DataLabel="PC 이름">@context.PcName</MudTd><MudTd DataLabel="운영체제(OS)">@FormatOperatingSystem(context.Os, context.SystemType)</MudTd>
@@ -123,7 +129,7 @@ else
     {
         _loading = true;
         StateHasChanged();
-        
+
         var client = HttpClientFactory.CreateClient("ITM.Dashboard.Api");
         var query = new List<string>();
         if (!string.IsNullOrEmpty(_selectedSite)) query.Add($"site={Uri.EscapeDataString(_selectedSite)}");
@@ -150,7 +156,7 @@ else
             StateHasChanged();
         }
     }
-    
+
     // [핵심 수정] 행 클릭 시 모달 창을 띄우는 메서드
     private void ShowChartDialog(AgentStatusDto agent)
     {
@@ -159,7 +165,7 @@ else
 
         DialogService.Show<PerformanceChartDialog>("", parameters, options);
     }
-    
+
     private string FormatOperatingSystem(string os, string systemType)
     {
         if (string.IsNullOrEmpty(os)) return systemType;
