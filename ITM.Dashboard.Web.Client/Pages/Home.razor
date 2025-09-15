@@ -39,7 +39,7 @@
 else
 {
     <MudGrid Spacing="4">
-        @* --- 1. 시스템 현황 요약 요약 카드 --- *@
+        @* --- 1. 시스템 현황 요약 카드 --- *@
         <MudItem xs="12" sm="6" md="3">
             <MudPaper Class="pa-4 d-flex flex-column justify-center align-center" Style="height:160px;">
                 <MudIcon Icon="@Icons.Material.Rounded.Devices" Color="Color.Primary" Style="font-size: 48px;" />
@@ -104,13 +104,12 @@ else
                     <MudTd DataLabel="운영체제(OS)">@FormatOperatingSystem(context.Os, context.SystemType)</MudTd>
                     @* ▼▼▼ [수정] 3. 프로그레스 바가 잘 보이도록 Tooltip과 스타일을 추가합니다. ▼▼▼ *@
                     <MudTd DataLabel="CPU/Memory">
-                        <MudPaper Elevation="0" Class="d-flex align-center rounded pa-1 my-1" 
+                        <MudPaper Elevation="0" Class="d-flex align-center rounded pa-1 my-1"
                                   Style="background: var(--mud-palette-background-grey); position: relative;">
                             <MudProgressLinear Color="Color.Primary" Value="@context.CpuUsage" Class="rounded" Style="height:10px;" />
                             <MudTooltip Text="@($"CPU: {context.CpuUsage:F1}%")" Placement="Placement.Start" Inline="true" />
                         </MudPaper>
-                    
-                        <MudPaper Elevation="0" Class="d-flex align-center rounded pa-1 my-1" 
+                        <MudPaper Elevation="0" Class="d-flex align-center rounded pa-1 my-1"
                                   Style="background: var(--mud-palette-background-grey); position: relative;">
                             <MudProgressLinear Color="Color.Info" Value="@context.MemoryUsage" Class="rounded" Style="height:10px;" />
                             <MudTooltip Text="@($"Memory: {context.MemoryUsage:F1}%")" Placement="Placement.Start" Inline="true" />
