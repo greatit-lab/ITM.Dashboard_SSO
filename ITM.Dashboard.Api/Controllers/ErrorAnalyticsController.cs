@@ -16,33 +16,36 @@ namespace ITM.Dashboard.Api.Controllers
     {
         private string GetConnectionString() => new DatabaseInfo().GetConnectionString();
 
-        // [수정] 쿼리 생성 방식을 JOIN이 아닌 서브쿼리 방식으로 변경
-        private (string, NpgsqlCommand) BuildFilteredQuery(string selectClause, DateTime startDate, DateTime endDate, string site, string sdwt, string[] eqpids)
+        private void AddFilterLogic(StringBuilder whereClause, NpgsqlCommand cmd, string site, string sdwt)
         {
-            var cmd = new NpgsqlCommand();
-            var sqlBuilder = new StringBuilder(selectClause);
-            sqlBuilder.Append(" FROM public.plg_error e WHERE e.serv_ts >= @startDate AND e.serv_ts < @endDate");
-            
-            cmd.Parameters.AddWithValue("startDate", startDate.Date);
-            cmd.Parameters.AddWithValue("endDate", endDate.Date.AddDays(1));
-
-            if (eqpids != null && eqpids.Any() && !string.IsNullOrEmpty(eqpids[0]))
+            if (!string.IsNullOrEmpty(sdwt))
             {
-                sqlBuilder.Append(" AND e.eqpid = ANY(@eqpids)");
-                cmd.Parameters.AddWithValue("eqpids", eqpids);
-            }
-            else if (!string.IsNullOrEmpty(sdwt))
-            {
-                sqlBuilder.Append(" AND e.eqpid IN (SELECT eqpid FROM public.ref_equipment WHERE sdwt = @sdwt)");
+                whereClause.Append(" AND r.sdwt = @sdwt");
                 cmd.Parameters.AddWithValue("sdwt", sdwt);
             }
             else if (!string.IsNullOrEmpty(site))
             {
-                sqlBuilder.Append(" AND e.eqpid IN (SELECT r.eqpid FROM public.ref_equipment r JOIN public.ref_sdwt s ON r.sdwt = s.sdwt WHERE s.site = @site)");
+                whereClause.Append(" AND r.sdwt IN (SELECT sdwt FROM public.ref_sdwt WHERE site = @site)");
                 cmd.Parameters.AddWithValue("site", site);
             }
+        }
 
-            return (sqlBuilder.ToString(), cmd);
+        private (string, NpgsqlCommand) BuildFilteredQuery(string baseSql, DateTime startDate, DateTime endDate, string site, string sdwt, string[] eqpids)
+        {
+            var cmd = new NpgsqlCommand();
+            var whereClauses = new StringBuilder(" WHERE e.serv_ts >= @startDate AND e.serv_ts < @endDate");
+            cmd.Parameters.AddWithValue("startDate", startDate.Date);
+            cmd.Parameters.AddWithValue("endDate", endDate.Date.AddDays(1));
+
+            AddFilterLogic(whereClauses, cmd, site, sdwt);
+
+            if (eqpids != null && eqpids.Any() && !string.IsNullOrEmpty(eqpids[0]))
+            {
+                whereClauses.Append(" AND e.eqpid = ANY(@eqpids)");
+                cmd.Parameters.AddWithValue("eqpids", eqpids);
+            }
+
+            return (baseSql + whereClauses.ToString(), cmd);
         }
 
         [HttpGet("summary")]
@@ -53,15 +56,18 @@ namespace ITM.Dashboard.Api.Controllers
             await using var conn = new NpgsqlConnection(GetConnectionString());
             await conn.OpenAsync();
             
-            var (totalCountSql, totalCountCmd) = BuildFilteredQuery("SELECT COUNT(*)", startDate, endDate, site, sdwt, eqpids);
+            // [수정] INNER JOIN을 LEFT JOIN으로 변경
+            string baseFrom = " FROM public.plg_error e LEFT JOIN public.ref_equipment r ON e.eqpid = r.eqpid ";
+
+            var (totalCountSql, totalCountCmd) = BuildFilteredQuery("SELECT COUNT(*) " + baseFrom, startDate, endDate, site, sdwt, eqpids);
             totalCountCmd.Connection = conn;
             summary.TotalErrorCount = Convert.ToInt64(await totalCountCmd.ExecuteScalarAsync());
 
-            var (eqpCountSql, eqpCountCmd) = BuildFilteredQuery("SELECT COUNT(DISTINCT e.eqpid)", startDate, endDate, site, sdwt, eqpids);
+            var (eqpCountSql, eqpCountCmd) = BuildFilteredQuery("SELECT COUNT(DISTINCT e.eqpid) " + baseFrom, startDate, endDate, site, sdwt, eqpids);
             eqpCountCmd.Connection = conn;
             summary.ErrorEqpCount = Convert.ToInt32(await eqpCountCmd.ExecuteScalarAsync());
 
-            var (topErrorSql, topErrorCmd) = BuildFilteredQuery("SELECT e.error_id, COUNT(*) as count", startDate, endDate, site, sdwt, eqpids);
+            var (topErrorSql, topErrorCmd) = BuildFilteredQuery("SELECT e.error_id, COUNT(*) as count " + baseFrom, startDate, endDate, site, sdwt, eqpids);
             topErrorCmd.CommandText = topErrorSql + " GROUP BY e.error_id ORDER BY count DESC LIMIT 1";
             topErrorCmd.Connection = conn;
             await using (var reader = await topErrorCmd.ExecuteReaderAsync())
@@ -73,7 +79,7 @@ namespace ITM.Dashboard.Api.Controllers
                 }
             }
 
-            var (byEqpSql, byEqpCmd) = BuildFilteredQuery("SELECT e.eqpid, COUNT(*) as count", startDate, endDate, site, sdwt, eqpids);
+            var (byEqpSql, byEqpCmd) = BuildFilteredQuery("SELECT e.eqpid, COUNT(*) as count " + baseFrom, startDate, endDate, site, sdwt, eqpids);
             byEqpCmd.CommandText = byEqpSql + " GROUP BY e.eqpid ORDER BY count DESC";
             byEqpCmd.Connection = conn;
             await using (var reader = await byEqpCmd.ExecuteReaderAsync())
@@ -99,7 +105,9 @@ namespace ITM.Dashboard.Api.Controllers
             await using var conn = new NpgsqlConnection(GetConnectionString());
             await conn.OpenAsync();
             
-            var (sql, cmd) = BuildFilteredQuery("SELECT DATE_TRUNC('day', e.serv_ts) as day, COUNT(*) as count", startDate, endDate, site, sdwt, eqpids);
+            // [수정] INNER JOIN을 LEFT JOIN으로 변경
+            string baseFrom = " FROM public.plg_error e LEFT JOIN public.ref_equipment r ON e.eqpid = r.eqpid ";
+            var (sql, cmd) = BuildFilteredQuery("SELECT DATE_TRUNC('day', e.serv_ts) as day, COUNT(*) as count" + baseFrom, startDate, endDate, site, sdwt, eqpids);
             cmd.CommandText = sql + " GROUP BY day ORDER BY day";
             cmd.Connection = conn;
 
@@ -124,12 +132,15 @@ namespace ITM.Dashboard.Api.Controllers
             long totalItems = 0;
             await using var conn = new NpgsqlConnection(GetConnectionString());
             await conn.OpenAsync();
+            
+            // [수정] INNER JOIN을 LEFT JOIN으로 변경
+            string baseFrom = " FROM public.plg_error e LEFT JOIN public.ref_equipment r ON e.eqpid = r.eqpid ";
 
-            var (countSql, countCmd) = BuildFilteredQuery("SELECT COUNT(*)", startDate, endDate, site, sdwt, eqpids);
+            var (countSql, countCmd) = BuildFilteredQuery("SELECT COUNT(*)" + baseFrom, startDate, endDate, site, sdwt, eqpids);
             countCmd.Connection = conn;
             totalItems = Convert.ToInt64(await countCmd.ExecuteScalarAsync());
 
-            var (sql, cmd) = BuildFilteredQuery("SELECT e.serv_ts, e.eqpid, e.error_id, e.error_label, e.error_desc", startDate, endDate, site, sdwt, eqpids);
+            var (sql, cmd) = BuildFilteredQuery("SELECT e.serv_ts, e.eqpid, e.error_id, e.error_label, e.error_desc" + baseFrom, startDate, endDate, site, sdwt, eqpids);
             cmd.CommandText = sql + " ORDER BY e.serv_ts DESC OFFSET @offset LIMIT @pageSize";
             cmd.Parameters.AddWithValue("offset", page * pageSize);
             cmd.Parameters.AddWithValue("pageSize", pageSize);
