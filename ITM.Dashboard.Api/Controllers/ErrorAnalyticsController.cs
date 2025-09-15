@@ -110,7 +110,7 @@ namespace ITM.Dashboard.Api.Controllers
 
         [HttpGet("logs")]
         public async Task<ActionResult<IEnumerable<ErrorLogDto>>> GetErrorLogs(
-            [FromQuery] DateTime startDate, [FromQuery] DateTime endDate, [FromQuery] string[] eqpids, 
+            [FromQuery] DateTime startDate, [FromQuery] DateTime endDate, [FromQuery] string[] eqpids,
             [FromQuery] int page = 0, [FromQuery] int pageSize = 20)
         {
             var results = new List<ErrorLogDto>();
