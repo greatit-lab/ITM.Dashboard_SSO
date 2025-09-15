@@ -1,0 +1,78 @@
+@using ITM.Dashboard.Web.Client.Models
+@using MudBlazor @* <-- 이 using 구문이 반드시 파일 상단에 있어야 합니다. *@
+@inject IHttpClientFactory HttpClientFactory
+
+<MudDialog>
+    <TitleContent>
+        <MudText Typo="Typo.h6">@EqpId 성능 현황 (최근 24시간, 1분 평균)</MudText>
+    </TitleContent>
+    <DialogContent>
+        @if (_isChartLoading)
+        {
+            <div class="d-flex justify-center align-center" style="height: 400px;">
+                <MudProgressCircular Color="Color.Primary" Indeterminate="true" />
+            </div>
+        }
+        else if (_chartData != null && _chartData.Any())
+        {
+            <MudChart ChartType="ChartType.Line" ChartSeries="_chartSeries" XAxisLabels="_chartXAxisLabels" Height="400px" ChartOptions="@_chartOptions" />
+        }
+        else
+        {
+            <div class="d-flex justify-center align-center" style="height: 400px;">
+                <MudText>선택된 장비의 최근 24시간 성능 데이터가 없습니다.</MudText>
+            </div>
+        }
+    </DialogContent>
+    <DialogActions>
+        <MudButton OnClick="Cancel">닫기</MudButton>
+    </DialogActions>
+</MudDialog>
+
+@code {
+    [CascadingParameter] MudDialogInstance MudDialog { get; set; }
+
+    [Parameter] public string EqpId { get; set; }
+
+    private bool _isChartLoading = true;
+    private List<PerformanceDataPointDto> _chartData = new();
+    private List<ChartSeries> _chartSeries = new();
+    private string[] _chartXAxisLabels = Array.Empty<string>();
+    private ChartOptions _chartOptions = new ChartOptions();
+
+    protected override async Task OnInitializedAsync()
+    {
+        _chartOptions.YAxisTicks = 0; // Y축 라벨 숨기기
+
+        var client = HttpClientFactory.CreateClient("ITM.Dashboard.Api");
+        try
+        {
+            _chartData = await client.GetFromJsonAsync<List<PerformanceDataPointDto>>($"api/dashboard/performancehistory/{EqpId}") ?? new();
+            PrepareChartData();
+        }
+        catch (Exception ex)
+        {
+            Console.WriteLine($"차트 데이터 로드 실패: {ex.Message}");
+            _chartData.Clear();
+        }
+        finally
+        {
+            _isChartLoading = false;
+        }
+    }
+
+    private void PrepareChartData()
+    {
+        _chartSeries = new List<ChartSeries>
+        {
+            new ChartSeries { Name = "CPU", Data = _chartData.Select(d => d.CpuUsage).ToArray() },
+            new ChartSeries { Name = "Memory", Data = _chartData.Select(d => d.MemoryUsage).ToArray() }
+        };
+
+        _chartXAxisLabels = _chartData.Select(d =>
+            d.Timestamp.Minute % 10 == 0 ? d.Timestamp.ToString("HH:mm") : ""
+        ).ToArray();
+    }
+
+    void Cancel() => MudDialog.Cancel();
+}
