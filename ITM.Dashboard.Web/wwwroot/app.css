@@ -1,0 +1,13 @@
+/* // ITM.Dashboard.Web/wwwroot/app.css */
+@import url('https://fonts.googleapis.com/css?family=Roboto:300,400,500,700&display=swap');
+
+html, body {
+    font-family: 'Roboto', sans-serif;
+}
+
+/* 세련된 배경 패턴 추가 */
+.main-content {
+    background-color: #1E2125; /* 테마 배경색과 일치 */
+    background-image: radial-gradient(circle at 1px 1px, rgba(255,255,255,0.05) 1px, transparent 0);
+    background-size: 20px 20px;
+}
