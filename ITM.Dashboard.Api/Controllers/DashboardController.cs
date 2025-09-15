@@ -83,7 +83,7 @@ namespace ITM.Dashboard.Api.Controllers
 
             return Ok(summary);
         }
-        
+
         [HttpGet("agentstatus")]
         public async Task<ActionResult<IEnumerable<AgentStatusDto>>> GetAgentStatus([FromQuery] string site, [FromQuery] string sdwt)
         {
@@ -113,8 +113,8 @@ namespace ITM.Dashboard.Api.Controllers
 
             await using var cmd = new NpgsqlCommand();
             AddFilterLogic(sqlBuilder, cmd, site, sdwt);
-            sqlBuilder.Append(" ORDER BY is_online DESC, a.eqpid;"); 
-            
+            sqlBuilder.Append(" ORDER BY is_online DESC, a.eqpid;");
+
             cmd.Connection = conn;
             cmd.CommandText = sqlBuilder.ToString();
 
