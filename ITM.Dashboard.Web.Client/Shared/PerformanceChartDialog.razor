@@ -1,3 +1,4 @@
+@* // ITM.Dashboard.Web.Client/Shared/PerformanceChartDialog.razor *@
 @using ITM.Dashboard.Web.Client.Models
 @using MudBlazor
 @inject IHttpClientFactory HttpClientFactory
@@ -61,7 +62,7 @@
     private List<PerformanceDataPointDto> _chartData = new();
     private List<ChartSeries> _chartSeries = new();
     private string[] _chartXAxisLabels = Array.Empty<string>();
-    private ChartOptions _chartOptions = new ChartOptions();
+    private ChartOptions _chartOptions = new();
 
     protected override async Task OnInitializedAsync()
     {
@@ -95,7 +96,7 @@
             new ChartSeries { Name = "CPU", Data = _chartData.Select(d => Math.Round(d.CpuUsage, 2)).ToArray() },
             new ChartSeries { Name = "Memory", Data = _chartData.Select(d => Math.Round(d.MemoryUsage, 2)).ToArray() }
         };
-        
+
         _chartXAxisLabels = _chartData.Select(d =>
             d.Timestamp.Minute % 30 == 0 ? d.Timestamp.ToString("HH:mm") : ""
         ).ToArray();
