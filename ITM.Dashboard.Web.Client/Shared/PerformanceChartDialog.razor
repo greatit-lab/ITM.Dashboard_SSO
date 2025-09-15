@@ -1,10 +1,30 @@
 @using ITM.Dashboard.Web.Client.Models
-@using MudBlazor @* <-- 이 using 구문이 반드시 파일 상단에 있어야 합니다. *@
+@using MudBlazor
 @inject IHttpClientFactory HttpClientFactory
+
+<style>
+    .mud-charts-xaxis-text {
+        transform: rotate(-45deg);
+        text-anchor: end;
+    }
+</style>
 
 <MudDialog>
     <TitleContent>
-        <MudText Typo="Typo.h6">@EqpId 성능 현황 (최근 24시간, 1분 평균)</MudText>
+        @* ▼▼▼ [수정] 제목 영역을 div로 감싸고, 값 표시 영역을 추가합니다. ▼▼▼ *@
+        <div class="d-flex align-center">
+            <MudText Typo="Typo.h6">@EqpId 성능 현황 (최근 24시간, 5분 평균)</MudText>
+            <MudSpacer />
+
+            @* 마우스가 차트 위에 있을 때만 값을 표시합니다. *@
+            @if (_selectedIndex > -1 && _chartData.Count > _selectedIndex)
+            {
+                <MudText Class="mr-4">
+                    <span class="font-weight-bold">CPU:</span> @(_chartData[_selectedIndex].CpuUsage.ToString("F2"))%
+                    <span class="font-weight-bold ml-2">Memory:</span> @(_chartData[_selectedIndex].MemoryUsage.ToString("F2"))%
+                </MudText>
+            }
+        </div>
     </TitleContent>
     <DialogContent>
         @if (_isChartLoading)
@@ -15,7 +35,8 @@
         }
         else if (_chartData != null && _chartData.Any())
         {
-            <MudChart ChartType="ChartType.Line" ChartSeries="_chartSeries" XAxisLabels="_chartXAxisLabels" Height="400px" ChartOptions="@_chartOptions" />
+            @* ▼▼▼ [수정] @bind-SelectedIndex를 추가합니다. ▼▼▼ *@
+            <MudChart @bind-SelectedIndex="_selectedIndex" ChartType="ChartType.Line" ChartSeries="_chartSeries" XAxisLabels="_chartXAxisLabels" Width="100%" Height="400px" ChartOptions="@_chartOptions" />
         }
         else
         {
@@ -30,9 +51,11 @@
 </MudDialog>
 
 @code {
-    [CascadingParameter] MudDialogInstance MudDialog { get; set; }
-
+    [CascadingParameter] IMudDialogInstance MudDialog { get; set; }
     [Parameter] public string EqpId { get; set; }
+
+    // ▼▼▼ [추가] 선택된 데이터 포인트의 인덱스를 저장할 변수 ▼▼▼
+    private int _selectedIndex = -1;
 
     private bool _isChartLoading = true;
     private List<PerformanceDataPointDto> _chartData = new();
@@ -42,7 +65,11 @@
 
     protected override async Task OnInitializedAsync()
     {
-        _chartOptions.YAxisTicks = 0; // Y축 라벨 숨기기
+        // ▼▼▼ [수정] ChartOptions를 초기화하여 이전의 잘못된 설정을 모두 제거합니다. ▼▼▼
+        _chartOptions = new ChartOptions
+        {
+            YAxisTicks = 0
+        };
 
         var client = HttpClientFactory.CreateClient("ITM.Dashboard.Api");
         try
@@ -65,12 +92,12 @@
     {
         _chartSeries = new List<ChartSeries>
         {
-            new ChartSeries { Name = "CPU", Data = _chartData.Select(d => d.CpuUsage).ToArray() },
-            new ChartSeries { Name = "Memory", Data = _chartData.Select(d => d.MemoryUsage).ToArray() }
+            new ChartSeries { Name = "CPU", Data = _chartData.Select(d => Math.Round(d.CpuUsage, 2)).ToArray() },
+            new ChartSeries { Name = "Memory", Data = _chartData.Select(d => Math.Round(d.MemoryUsage, 2)).ToArray() }
         };
-
+        
         _chartXAxisLabels = _chartData.Select(d =>
-            d.Timestamp.Minute % 10 == 0 ? d.Timestamp.ToString("HH:mm") : ""
+            d.Timestamp.Minute % 30 == 0 ? d.Timestamp.ToString("HH:mm") : ""
         ).ToArray();
     }
 
