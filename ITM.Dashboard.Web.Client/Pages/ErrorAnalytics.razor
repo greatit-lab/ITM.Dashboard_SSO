@@ -44,7 +44,7 @@
 {
     <MudProgressCircular Color="Color.Primary" Indeterminate="true" />
 }
-else if(_isSearched)
+else if (_isSearched)
 {
     <MudGrid Spacing="3">
         @* KPI Cards *@
@@ -108,18 +108,18 @@ else
     private MudDataGrid<ErrorLogDto> _grid;
 
     private DateRange _dateRange = new DateRange(DateTime.Now.Date.AddDays(-6), DateTime.Now.Date);
-    
+
     private List<string> _sites = new();
     private List<string> _sdwts = new();
     private List<string> _eqpIds = new();
-    
+
     private string _selectedSite;
     private string _selectedSdwt;
     private string _selectedEqpId;
 
     private ErrorAnalyticsSummaryDto _summary;
     private List<ErrorTrendDataPointDto> _trendData = new();
-    
+
     private List<ChartSeries> _trendSeries = new();
     private string[] _trendXAxisLabels = Array.Empty<string>();
     private double[] _donutChartInput = Array.Empty<double>();
@@ -159,18 +159,18 @@ else
         if (!string.IsNullOrEmpty(_selectedSite))
         {
             var client = HttpClientFactory.CreateClient("ITM.Dashboard.Api");
-            var url = string.IsNullOrEmpty(_selectedSdwt) 
+            var url = string.IsNullOrEmpty(_selectedSdwt)
                 ? $"api/Filters/eqpidsbysite/{_selectedSite}" // Site 내 전체 EQPID (API 추가 필요)
                 : $"api/Filters/eqpids/{_selectedSdwt}";
-                
+
             // 임시로 SDWT 기준만 사용
-             if (!string.IsNullOrEmpty(_selectedSdwt))
-             {
+            if (!string.IsNullOrEmpty(_selectedSdwt))
+            {
                 _eqpIds = await client.GetFromJsonAsync<List<string>>(url) ?? new();
-             }
+            }
         }
     }
-    
+
     private void OnEqpidChanged(string eqpid) => _selectedEqpId = eqpid;
 
     private async Task<IEnumerable<string>> SearchEqpids(string value, CancellationToken token)
@@ -198,7 +198,7 @@ else
 
             _summary = await summaryTask;
             _trendData = await trendTask;
-            
+
             PrepareChartData();
             await _grid.ReloadServerData(); // 데이터 그리드 갱신
         }
@@ -215,52 +215,57 @@ else
 
     private async Task<GridData<ErrorLogDto>> LoadGridData(GridState<ErrorLogDto> state)
     {
-        if (!_isSearched) return new GridData<ErrorLogDto> { Items = new List<ErrorLogDto>(), TotalItems = 0 };
+        if (!_isSearched)
+            return new GridData<ErrorLogDto> { Items = new List<ErrorLogDto>(), TotalItems = 0 };
 
         var client = HttpClientFactory.CreateClient("ITM.Dashboard.Api");
         var query = BuildQueryString();
-        
+        var dataUrl = $"api/ErrorAnalytics/logs?{query}&page={state.Page}&pageSize={state.PageSize}";
+
         try
         {
-            // 전체 카운트를 가져오는 API 호출이 필요하지만, 여기서는 생략하고 Grid 자체 페이징을 활용
-            // 서버사이드 페이징을 위해서는 별도의 Count API가 필요합니다.
-            var dataUrl = $"api/ErrorAnalytics/logs?{query}&page={state.Page}&pageSize={state.PageSize}";
-            var items = await client.GetFromJsonAsync<List<ErrorLogDto>>(dataUrl);
-            
-            // 임시: 서버에서 전체 개수를 받아오지 못하므로, 현재 페이지가 마지막인 것처럼 처리
-            var totalItems = items.Count < state.PageSize ? state.Page * state.PageSize + items.Count : (state.Page + 2) * state.PageSize;
+            // GetFromJsonAsync를 사용하여 PagedResult<T>로 직접 변환
+            var pagedResult = await client.GetFromJsonAsync<PagedResult<ErrorLogDto>>(dataUrl);
 
-            return new GridData<ErrorLogDto> { Items = items, TotalItems = totalItems };
+            if (pagedResult != null)
+            {
+                return new GridData<ErrorLogDto>
+                {
+                    Items = pagedResult.Items,
+                    TotalItems = (int)pagedResult.TotalItems
+                };
+            }
         }
         catch (Exception ex)
         {
             Console.WriteLine($"Error loading grid data: {ex.Message}");
-            return new GridData<ErrorLogDto> { Items = new List<ErrorLogDto>(), TotalItems = 0 };
         }
+
+        return new GridData<ErrorLogDto> { Items = new List<ErrorLogDto>(), TotalItems = 0 };
     }
 
     private string BuildQueryString()
     {
         var startDate = _dateRange.Start?.ToString("o") ?? "";
         var endDate = _dateRange.End?.ToString("o") ?? "";
-        
+
         var queryParams = new System.Text.StringBuilder();
         queryParams.Append($"startDate={Uri.EscapeDataString(startDate)}");
         queryParams.Append($"&endDate={Uri.EscapeDataString(endDate)}");
 
         if (!string.IsNullOrEmpty(_selectedSite)) queryParams.Append($"&site={Uri.EscapeDataString(_selectedSite)}");
         if (!string.IsNullOrEmpty(_selectedSdwt)) queryParams.Append($"&sdwt={Uri.EscapeDataString(_selectedSdwt)}");
-        
+
         var eqpids = new List<string>();
-        if(!string.IsNullOrEmpty(_selectedEqpId)) eqpids.Add(_selectedEqpId);
-        if(eqpids.Any())
+        if (!string.IsNullOrEmpty(_selectedEqpId)) eqpids.Add(_selectedEqpId);
+        if (eqpids.Any())
         {
-             foreach(var id in eqpids)
-             {
-                 queryParams.Append($"&eqpids={Uri.EscapeDataString(id)}");
-             }
+            foreach (var id in eqpids)
+            {
+                queryParams.Append($"&eqpids={Uri.EscapeDataString(id)}");
+            }
         }
-        
+
         return queryParams.ToString();
     }
 
@@ -272,7 +277,7 @@ else
         };
         _trendXAxisLabels = _trendData.Select(d => d.Date.ToString("MM-dd")).ToArray();
 
-        if(_summary?.ErrorCountByEqp != null)
+        if (_summary?.ErrorCountByEqp != null)
         {
             _donutChartInput = _summary.ErrorCountByEqp.Select(d => d.Value).ToArray();
             _donutChartLabels = _summary.ErrorCountByEqp.Select(d => d.Label).ToArray();
