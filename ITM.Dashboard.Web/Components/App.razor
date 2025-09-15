@@ -18,6 +18,29 @@
     <Routes @rendermode="RenderMode.InteractiveWebAssembly" />
     <script src="_content/MudBlazor/MudBlazor.min.js"></script>
     <script src="_framework/blazor.web.js"></script>
+
+    @* ▼▼▼ [4/4] 이 스크립트 블록을 여기에 추가해주세요. ▼▼▼ *@
+    <script>
+        window.formatApexChartTooltip = (chartId) => {
+            var options = {
+                tooltip: {
+                    y: {
+                        formatter: function (val) {
+                            if (typeof val === 'number') {
+                                return val.toFixed(2);
+                            }
+                            return val;
+                        }
+                    }
+                }
+            };
+
+            // MudBlazor가 사용하는 ApexCharts 라이브러리의 전역 객체를 사용하여 옵션을 업데이트합니다.
+            if (window.ApexCharts) {
+                ApexCharts.exec(chartId, 'updateOptions', options);
+            }
+        };
+    </script>
 </body>
 
 </html>
