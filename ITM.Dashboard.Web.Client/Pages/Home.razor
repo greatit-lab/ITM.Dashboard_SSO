@@ -9,18 +9,18 @@
 
 <MudText Typo="Typo.h4" GutterBottom="true">종합 현황 대시보드</MudText>
 
-<MudPaper Class="pa-4 mb-4">
-    <MudGrid Spacing="2" AlignItems="AlignItems.Center">
-        <MudItem xs="6" sm="3" md="2">
-            <MudSelect T="string" Label="Site" Value="_selectedSite" ValueChanged="OnSiteChanged" Dense="true" Margin="Margin.Dense" Clearable="true">
+<MudPaper Elevation="0" Class="pa-4 mb-4" Style="background-color: transparent;">
+    <MudGrid Spacing="2" Justify="Justify.FlexStart">
+        <MudItem xs="12" sm="4" md="2">
+            <MudSelect T="string" Label="Site" Value="_selectedSite" ValueChanged="OnSiteChanged" Dense="true" Margin="Margin.Dense" Clearable="true" Variant="Variant.Outlined">
                 @foreach (var site in _sites)
                 {
                     <MudSelectItem T="string" Value="@site">@site</MudSelectItem>
                 }
             </MudSelect>
         </MudItem>
-        <MudItem xs="6" sm="3" md="2">
-            <MudSelect T="string" Label="SDWT" Value="_selectedSdwt" ValueChanged="OnSdwtChanged" Disabled="@(string.IsNullOrEmpty(_selectedSite))" Dense="true" Margin="Margin.Dense" Clearable="true">
+        <MudItem xs="12" sm="4" md="2">
+            <MudSelect T="string" Label="SDWT" Value="_selectedSdwt" ValueChanged="OnSdwtChanged" Disabled="@(string.IsNullOrEmpty(_selectedSite))" Dense="true" Margin="Margin.Dense" Clearable="true" Variant="Variant.Outlined">
                 @foreach (var sdwt in _sdwts)
                 {
                     <MudSelectItem T="string" Value="@sdwt">@sdwt</MudSelectItem>
@@ -32,61 +32,92 @@
 
 @if (_loading)
 {
-    <MudProgressCircular Color="Color.Primary" Indeterminate="true" />
+    <MudGrid Justify="Justify.Center" Class="mt-16">
+        <MudProgressCircular Color="Color.Primary" Indeterminate="true" Size="Size.Large" />
+    </MudGrid>
 }
 else
 {
-    <MudGrid Spacing="3">
-        @* --- 1. 시스템 현황 요약 --- *@
-        <MudItem xs="12" sm="4">
-            <MudPaper Class="pa-4" Style="height:100%">
-                <MudText Typo="Typo.subtitle1">총 모니터링 장비</MudText>
-                <MudText Typo="Typo.h4">@_summary?.TotalEqpCount</MudText>
+    <MudGrid Spacing="4">
+        @* --- 1. 시스템 현황 요약 (개선된 카드 디자인) --- *@
+        <MudItem xs="12" sm="6" md="3">
+            <MudPaper Class="pa-4 d-flex flex-column justify-center align-center" Style="height:160px;">
+                <MudIcon Icon="@Icons.Material.Rounded.Devices" Color="Color.Primary" Style="font-size: 48px;" />
+                <MudText Typo="Typo.h6" Class="mt-2">@_summary?.TotalEqpCount</MudText>
+                <MudText Typo="Typo.body2" Class="mud-text-secondary">총 모니터링 장비</MudText>
             </MudPaper>
         </MudItem>
-        <MudItem xs="12" sm="4">
-            <MudPaper Class="pa-4" Style="height:100%">
-                <MudText Typo="Typo.subtitle1">온라인 에이전트</MudText>
-                <MudText Typo="Typo.h4" Color="@(_summary?.OnlineAgentCount > 0 ? Color.Success : Color.Default)">@_summary?.OnlineAgentCount</MudText>
+        <MudItem xs="12" sm="6" md="3">
+            <MudPaper Class="pa-4 d-flex flex-column justify-center align-center" Style="height:160px;">
+                <MudIcon Icon="@Icons.Material.Rounded.Wifi" Color="Color.Success" Style="font-size: 48px;" />
+                <MudText Typo="Typo.h6" Class="mt-2">@_summary?.OnlineAgentCount</MudText>
+                <MudText Typo="Typo.body2" Class="mud-text-secondary">온라인 에이전트</MudText>
             </MudPaper>
         </MudItem>
-        <MudItem xs="12" sm="4">
-            <MudPaper Class="pa-4" Style="height:100%">
-                <MudText Typo="Typo.subtitle1">오프라인 에이전트</MudText>
-                <MudText Typo="Typo.h4" Color="@((_summary?.TotalEqpCount - _summary?.OnlineAgentCount) > 0 ? Color.Error : Color.Default)">@(_summary?.TotalEqpCount - _summary?.OnlineAgentCount)</MudText>
+        <MudItem xs="12" sm="6" md="3">
+            <MudPaper Class="pa-4 d-flex flex-column justify-center align-center" Style="height:160px;">
+                <MudIcon Icon="@Icons.Material.Rounded.WifiOff" Color="@((_summary?.TotalEqpCount - _summary?.OnlineAgentCount) > 0 ? Color.Error : Color.Default)" Style="font-size: 48px;" />
+                <MudText Typo="Typo.h6" Color="@((_summary?.TotalEqpCount - _summary?.OnlineAgentCount) > 0 ? Color.Error : Color.Default)" Class="mt-2">@(_summary?.TotalEqpCount - _summary?.OnlineAgentCount)</MudText>
+                <MudText Typo="Typo.body2" Class="mud-text-secondary">오프라인 에이전트</MudText>
+            </MudPaper>
+        </MudItem>
+        <MudItem xs="12" sm="6" md="3">
+            <MudPaper Class="pa-4 d-flex flex-column justify-center align-center" Style="height:160px;">
+                <MudIcon Icon="@Icons.Material.Rounded.ErrorOutline" Color="Color.Warning" Style="font-size: 48px;" />
+                <MudText Typo="Typo.h6" Class="mt-2">@_summary?.TodayErrorCount</MudText>
+                <MudText Typo="Typo.body2" Class="mud-text-secondary">금일 발생 에러</MudText>
             </MudPaper>
         </MudItem>
 
         @* --- 2. 에이전트 상태 모니터링 --- *@
         <MudItem xs="12">
-            <MudTable Items="_agentStatusList" Hover="true" Striped="true" Dense="true" RowsPerPage="10"
-                      OnRowClick="@((TableRowClickEventArgs<AgentStatusDto> args) => ShowChartDialog(args.Item))">
+            <MudTable Items="_agentStatusList" Hover="true" Dense="true" Class="mt-4">
                 <HeaderContent>
-                    <MudTh>상태</MudTh><MudTh>EQP ID</MudTh><MudTh>Type</MudTh><MudTh>IP 주소</MudTh>
-                    <MudTh>PC 이름</MudTh><MudTh>운영체제(OS)</MudTh><MudTh>Locale</MudTh><MudTh>Timezone</MudTh>
-                    <MudTh>CPU / Memory</MudTh><MudTh>마지막 접속</MudTh><MudTh>에이전트 버전</MudTh>
+                    <MudTh>상태</MudTh>
+                    <MudTh>EQP ID</MudTh>
+                    <MudTh>Type</MudTh>
+                    <MudTh>IP 주소</MudTh>
+                    <MudTh>PC 이름</MudTh>
+                    <MudTh>운영체제(OS)</MudTh>
+                    <MudTh Style="width: 150px;">CPU / Memory</MudTh>
+                    <MudTh>마지막 접속</MudTh>
+                    <MudTh>에이전트 버전</MudTh>
                 </HeaderContent>
                 <RowTemplate>
                     <MudTd DataLabel="상태">
                         @if (context.IsOnline)
                         {
-                            <MudChip T="object" Icon="@Icons.Material.Filled.CheckCircle" Color="Color.Success" Size="Size.Small">온라인</MudChip>
+                            <MudChip T="object" Icon="@Icons.Material.Filled.CheckCircle" Color="Color.Success" Size="Size.Small" Variant="Variant.Outlined">온라인</MudChip>
                         }
                         else
                         {
-                            <MudChip T="object" Icon="@Icons.Material.Filled.Error" Color="Color.Error" Size="Size.Small">오프라인</MudChip>
+                            <MudChip T="object" Icon="@Icons.Material.Filled.Error" Color="Color.Error" Size="Size.Small" Variant="Variant.Outlined">오프라인</MudChip>
                         }
                     </MudTd>
-                    <MudTd DataLabel="EQP ID">@context.EqpId</MudTd><MudTd DataLabel="Type">@context.Type</MudTd><MudTd DataLabel="IP 주소">@context.IpAddress</MudTd>
-                    <MudTd DataLabel="PC 이름">@context.PcName</MudTd><MudTd DataLabel="운영체제(OS)">@FormatOperatingSystem(context.Os, context.SystemType)</MudTd>
-                    <MudTd DataLabel="Locale">@context.Locale</MudTd><MudTd DataLabel="Timezone">@FormatTimezone(context.Timezone)</MudTd>
-                    <MudTd DataLabel="CPU/Memory">
-                        <MudProgressLinear Color="Color.Primary" Value="@context.CpuUsage" /><MudProgressLinear Color="Color.Info" Value="@context.MemoryUsage" Class="mt-1" />
+                    <MudTd DataLabel="EQP ID">
+                        <MudLink OnClick="@(() => ShowChartDialog(context))" Typo="Typo.body2" Color="Color.Primary">@context.EqpId</MudLink>
                     </MudTd>
-                    <MudTd DataLabel="마지막 접속">@context.LastContact?.ToString("yy-MM-dd HH:mm:ss")</MudTd><MudTd DataLabel="에이전트 버전">@context.AppVersion</MudTd>
+                    <MudTd DataLabel="Type">@context.Type</MudTd>
+                    <MudTd DataLabel="IP 주소">@context.IpAddress</MudTd>
+                    <MudTd DataLabel="PC 이름">@context.PcName</MudTd>
+                    <MudTd DataLabel="운영체제(OS)">@FormatOperatingSystem(context.Os, context.SystemType)</MudTd>
+                    <MudTd DataLabel="CPU/Memory">
+                        <MudTooltip Text="@($"CPU: {context.CpuUsage:F1}%")">
+                            <MudProgressLinear Color="Color.Primary" Value="@context.CpuUsage" Class="my-1" Striped="true" />
+                        </MudTooltip>
+                        <MudTooltip Text="@($"Memory: {context.MemoryUsage:F1}%")">
+                            <MudProgressLinear Color="Color.Info" Value="@context.MemoryUsage" Class="my-1" Striped="true" />
+                        </MudTooltip>
+                    </MudTd>
+                    <MudTd DataLabel="마지막 접속">@context.LastContact?.ToString("yy-MM-dd HH:mm:ss")</MudTd>
+                    <MudTd DataLabel="에이전트 버전">@context.AppVersion</MudTd>
                 </RowTemplate>
-                <PagerContent><MudTablePager /></PagerContent>
-                <NoRecordsContent><MudText>조회된 에이전트 정보가 없습니다.</MudText></NoRecordsContent>
+                <PagerContent>
+                    <MudTablePager />
+                </PagerContent>
+                <NoRecordsContent>
+                    <MudText>조회된 에이전트 정보가 없습니다.</MudText>
+                </NoRecordsContent>
             </MudTable>
         </MudItem>
     </MudGrid>
@@ -164,20 +195,17 @@ else
         }
     }
 
-    // [핵심 수정] 행 클릭 시 모달 창을 띄우는 메서드
     private void ShowChartDialog(AgentStatusDto agent)
     {
         var parameters = new DialogParameters { ["EqpId"] = agent.EqpId };
-        // var options = new DialogOptions { MaxWidth = MaxWidth.Large, FullWidth = true };
         var options = new DialogOptions { MaxWidth = MaxWidth.Medium };
-
         DialogService.Show<PerformanceChartDialog>("", parameters, options);
     }
 
     private string FormatOperatingSystem(string os, string systemType)
     {
         if (string.IsNullOrEmpty(os)) return systemType;
-        var formattedOs = os.Replace("Microsoft Windows", "Windows").Replace("Professional", "Pro").Replace("Enterprise", "Ent").Replace("Server", "Svr");
+        var formattedOs = os.Replace("Microsoft Windows", "Win").Replace("Professional", "Pro").Replace("Enterprise", "Ent");
         var formattedSystemType = systemType.Replace("-bit", "bit");
         return $"{formattedOs} {formattedSystemType}".Trim();
     }
