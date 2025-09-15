@@ -1,0 +1,14 @@
+// ITM.Dashboard.Web.Client/Models/ErrorLogDto.cs
+using System;
+
+namespace ITM.Dashboard.Web.Client.Models
+{
+    public class ErrorLogDto
+    {
+        public DateTime TimeStamp { get; set; }
+        public string EqpId { get; set; }
+        public string ErrorId { get; set; }
+        public string ErrorLabel { get; set; }
+        public string ErrorDesc { get; set; }
+    }
+}
