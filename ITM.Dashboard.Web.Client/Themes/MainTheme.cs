@@ -1,19 +1,29 @@
 // ITM.Dashboard.Web.Client/Themes/MainTheme.cs
 using MudBlazor;
+using MudBlazor.Utilities;
 
 namespace ITM.Dashboard.Web.Client.Themes
 {
     public class MainTheme
     {
-        public static MudTheme DarkTheme = new MudTheme()
+        public static MudTheme MainITMTheme = new MudTheme()
         {
+            PaletteLight = new PaletteLight()
+            {
+                Primary = "#009688",
+                AppbarBackground = "#009688",
+                DrawerBackground = "#FFFFFF",
+                DrawerText = "rgba(0,0,0, 0.7)",
+                DrawerIcon = "rgba(0,0,0, 0.7)",
+                Success = "#00C853",
+            },
             PaletteDark = new PaletteDark()
             {
                 Primary = "#009688",
                 Secondary = "#2196F3",
                 Background = "#1E2125",
-                AppbarBackground = "#1E2125",
-                DrawerBackground = "#25292D",
+                AppbarBackground = "#25292D",
+                DrawerBackground = "#1E2125",
                 Surface = "#2C3035",
                 TextPrimary = "rgba(255,255,255, 0.87)",
                 TextSecondary = "rgba(255,255,255, 0.60)",
@@ -26,12 +36,10 @@ namespace ITM.Dashboard.Web.Client.Themes
                 Warning = "#FFAB00",
                 Error = "#F44336"
             },
-
-            // [최종 수정] 숫자 값을 모두 문자열로 변경하고, new 키워드를 제거했습니다.
+            
+            // ▼▼▼ 고객님께서 찾아주신 정확한 코드를 반영합니다. ▼▼▼
             Typography = new Typography()
             {
-                // BaseTypography는 추상 클래스이므로 직접 인스턴스화할 수 없습니다.
-                // Typography의 각 속성(H4, H5, H6, Subtitle1 등)에 맞는 구체적인 타입을 사용해야 합니다.
                 Default = new DefaultTypography()
                 {
                     FontFamily = new[] { "Roboto", "Helvetica", "Arial", "sans-serif" },
