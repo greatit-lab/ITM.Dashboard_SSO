@@ -1,6 +1,7 @@
 // ITM.Dashboard.Api/Controllers/ErrorAnalyticsController.cs
 using ITM.Dashboard.Api.Models;
 using Microsoft.AspNetCore.Mvc;
+using Microsoft.Extensions.Logging;
 using Npgsql;
 using System;
 using System.Collections.Generic;
@@ -14,47 +15,63 @@ namespace ITM.Dashboard.Api.Controllers
     [ApiController]
     public class ErrorAnalyticsController : ControllerBase
     {
+        private readonly ILogger<ErrorAnalyticsController> _logger;
         private string GetConnectionString() => new DatabaseInfo().GetConnectionString();
 
-        private (string, NpgsqlCommand) BuildFilteredQuery(string baseSql, DateTime startDate, DateTime endDate, [FromQuery] string[] eqpids)
+        public ErrorAnalyticsController(ILogger<ErrorAnalyticsController> logger)
+        {
+            _logger = logger;
+        }
+
+        private (string, NpgsqlCommand) BuildFilteredQuery(string selectClause, DateTime startDate, DateTime endDate, string site, string sdwt, string[] eqpids)
         {
             var cmd = new NpgsqlCommand();
-            var whereClauses = new List<string> { "time_stamp >= @startDate", "time_stamp < @endDate" };
+            var sqlBuilder = new StringBuilder(selectClause);
+            sqlBuilder.Append(" FROM public.plg_error e WHERE e.serv_ts >= @startDate AND e.serv_ts < @endDate");
+
             cmd.Parameters.AddWithValue("startDate", startDate.Date);
             cmd.Parameters.AddWithValue("endDate", endDate.Date.AddDays(1));
 
-            if (eqpids != null && eqpids.Any())
+            if (eqpids != null && eqpids.Any() && !string.IsNullOrEmpty(eqpids[0]))
             {
-                whereClauses.Add("eqpid = ANY(@eqpids)");
+                sqlBuilder.Append(" AND e.eqpid = ANY(@eqpids)");
                 cmd.Parameters.AddWithValue("eqpids", eqpids);
             }
+            else if (!string.IsNullOrEmpty(sdwt))
+            {
+                sqlBuilder.Append(" AND e.eqpid IN (SELECT eqpid FROM public.ref_equipment WHERE sdwt = @sdwt)");
+                cmd.Parameters.AddWithValue("sdwt", sdwt);
+            }
+            else if (!string.IsNullOrEmpty(site))
+            {
+                sqlBuilder.Append(" AND e.eqpid IN (SELECT r.eqpid FROM public.ref_equipment r JOIN public.ref_sdwt s ON r.sdwt = s.sdwt WHERE s.site = @site)");
+                cmd.Parameters.AddWithValue("site", site);
+            }
 
-            return (baseSql + " WHERE " + string.Join(" AND ", whereClauses), cmd);
+            return (sqlBuilder.ToString(), cmd);
         }
 
         [HttpGet("summary")]
         public async Task<ActionResult<ErrorAnalyticsSummaryDto>> GetSummary(
-            [FromQuery] DateTime startDate, [FromQuery] DateTime endDate, [FromQuery] string[] eqpids)
+            [FromQuery] DateTime startDate, [FromQuery] DateTime endDate, [FromQuery] string site, [FromQuery] string sdwt, [FromQuery] string[] eqpids)
         {
             var summary = new ErrorAnalyticsSummaryDto();
             await using var conn = new NpgsqlConnection(GetConnectionString());
             await conn.OpenAsync();
 
-            // Total Error Count
-            var (totalCountSql, totalCountCmd) = BuildFilteredQuery("SELECT COUNT(*) FROM public.plg_error", startDate, endDate, eqpids);
+            var (totalCountSql, totalCountCmd) = BuildFilteredQuery("SELECT COUNT(*)", startDate, endDate, site, sdwt, eqpids);
+            totalCountCmd.CommandText = totalCountSql; // [수정] CommandText 할당
             totalCountCmd.Connection = conn;
             summary.TotalErrorCount = Convert.ToInt64(await totalCountCmd.ExecuteScalarAsync());
 
-            // Error EQP Count
-            var (eqpCountSql, eqpCountCmd) = BuildFilteredQuery("SELECT COUNT(DISTINCT eqpid) FROM public.plg_error", startDate, endDate, eqpids);
+            var (eqpCountSql, eqpCountCmd) = BuildFilteredQuery("SELECT COUNT(DISTINCT e.eqpid)", startDate, endDate, site, sdwt, eqpids);
+            eqpCountCmd.CommandText = eqpCountSql; // [수정] CommandText 할당
             eqpCountCmd.Connection = conn;
             summary.ErrorEqpCount = Convert.ToInt32(await eqpCountCmd.ExecuteScalarAsync());
 
-            // Top Error
-            var (topErrorSql, topErrorCmd) = BuildFilteredQuery("SELECT error_id, COUNT(*) as count FROM public.plg_error", startDate, endDate, eqpids);
-            var topErrorSqlFinal = topErrorSql + " GROUP BY error_id ORDER BY count DESC LIMIT 1";
+            var (topErrorSql, topErrorCmd) = BuildFilteredQuery("SELECT e.error_id, COUNT(*) as count", startDate, endDate, site, sdwt, eqpids);
+            topErrorCmd.CommandText = topErrorSql + " GROUP BY e.error_id ORDER BY count DESC LIMIT 1";
             topErrorCmd.Connection = conn;
-            topErrorCmd.CommandText = topErrorSqlFinal;
             await using (var reader = await topErrorCmd.ExecuteReaderAsync())
             {
                 if (await reader.ReadAsync())
@@ -64,11 +81,9 @@ namespace ITM.Dashboard.Api.Controllers
                 }
             }
 
-            // Error Count by EQP
-            var (byEqpSql, byEqpCmd) = BuildFilteredQuery("SELECT eqpid, COUNT(*) as count FROM public.plg_error", startDate, endDate, eqpids);
-            var byEqpSqlFinal = byEqpSql + " GROUP BY eqpid ORDER BY count DESC";
+            var (byEqpSql, byEqpCmd) = BuildFilteredQuery("SELECT e.eqpid, COUNT(*) as count", startDate, endDate, site, sdwt, eqpids);
+            byEqpCmd.CommandText = byEqpSql + " GROUP BY e.eqpid ORDER BY count DESC";
             byEqpCmd.Connection = conn;
-            byEqpCmd.CommandText = byEqpSqlFinal;
             await using (var reader = await byEqpCmd.ExecuteReaderAsync())
             {
                 while (await reader.ReadAsync())
@@ -86,13 +101,13 @@ namespace ITM.Dashboard.Api.Controllers
 
         [HttpGet("trend")]
         public async Task<ActionResult<IEnumerable<ErrorTrendDataPointDto>>> GetErrorTrend(
-            [FromQuery] DateTime startDate, [FromQuery] DateTime endDate, [FromQuery] string[] eqpids)
+            [FromQuery] DateTime startDate, [FromQuery] DateTime endDate, [FromQuery] string site, [FromQuery] string sdwt, [FromQuery] string[] eqpids)
         {
             var results = new List<ErrorTrendDataPointDto>();
             await using var conn = new NpgsqlConnection(GetConnectionString());
             await conn.OpenAsync();
 
-            var (sql, cmd) = BuildFilteredQuery("SELECT DATE_TRUNC('day', time_stamp) as day, COUNT(*) as count FROM public.plg_error", startDate, endDate, eqpids);
+            var (sql, cmd) = BuildFilteredQuery("SELECT DATE_TRUNC('day', e.serv_ts) as day, COUNT(*) as count", startDate, endDate, site, sdwt, eqpids);
             cmd.CommandText = sql + " GROUP BY day ORDER BY day";
             cmd.Connection = conn;
 
@@ -109,16 +124,22 @@ namespace ITM.Dashboard.Api.Controllers
         }
 
         [HttpGet("logs")]
-        public async Task<ActionResult<IEnumerable<ErrorLogDto>>> GetErrorLogs(
-            [FromQuery] DateTime startDate, [FromQuery] DateTime endDate, [FromQuery] string[] eqpids,
-            [FromQuery] int page = 0, [FromQuery] int pageSize = 20)
+        public async Task<ActionResult<PagedResult<ErrorLogDto>>> GetErrorLogs(
+            [FromQuery] DateTime startDate, [FromQuery] DateTime endDate, [FromQuery] string site, [FromQuery] string sdwt, [FromQuery] string[] eqpids,
+            [FromQuery] int page = 0, [FromQuery] int pageSize = 10)
         {
             var results = new List<ErrorLogDto>();
+            long totalItems = 0;
             await using var conn = new NpgsqlConnection(GetConnectionString());
             await conn.OpenAsync();
 
-            var (sql, cmd) = BuildFilteredQuery("SELECT time_stamp, eqpid, error_id, error_label, error_desc FROM public.plg_error", startDate, endDate, eqpids);
-            cmd.CommandText = sql + " ORDER BY time_stamp DESC OFFSET @offset LIMIT @pageSize";
+            var (countSql, countCmd) = BuildFilteredQuery("SELECT COUNT(*)", startDate, endDate, site, sdwt, eqpids);
+            countCmd.CommandText = countSql; // [수정] CommandText 할당
+            countCmd.Connection = conn;
+            totalItems = Convert.ToInt64(await countCmd.ExecuteScalarAsync());
+
+            var (sql, cmd) = BuildFilteredQuery("SELECT e.serv_ts, e.eqpid, e.error_id, e.error_label, e.error_desc", startDate, endDate, site, sdwt, eqpids);
+            cmd.CommandText = sql + " ORDER BY e.serv_ts DESC OFFSET @offset LIMIT @pageSize";
             cmd.Parameters.AddWithValue("offset", page * pageSize);
             cmd.Parameters.AddWithValue("pageSize", pageSize);
             cmd.Connection = conn;
@@ -135,7 +156,7 @@ namespace ITM.Dashboard.Api.Controllers
                     ErrorDesc = reader.GetString(4)
                 });
             }
-            return Ok(results);
+            return Ok(new PagedResult<ErrorLogDto> { Items = results, TotalItems = totalItems });
         }
     }
 }
