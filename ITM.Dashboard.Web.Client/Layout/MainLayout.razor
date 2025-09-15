@@ -1,20 +1,25 @@
+@* // ITM.Dashboard.Web.Client/Layout/MainLayout.razor *@
 @inherits LayoutComponentBase
+@using ITM.Dashboard.Web.Client.Themes
 
-<MudThemeProvider />
+<MudThemeProvider @bind-IsDarkMode="@_isDarkMode" Theme="MainTheme.DarkTheme" />
 <MudDialogProvider />
 <MudSnackbarProvider />
-<MudPopoverProvider />
+<MudPopoverProvider /> @* <-- [수정] 이 줄을 추가하여 오류를 해결합니다. *@
 
 <MudLayout>
     <MudAppBar Elevation="1">
-        <MudIconButton Icon="@Icons.Material.Filled.Menu" Color="Color.Inherit" Edge="Edge.Start" OnClick="@DrawerToggle" />
+        <MudIconButton Icon="@Icons.Material.Rounded.Menu" Color="Color.Inherit" Edge="Edge.Start" OnClick="@DrawerToggle" />
         <MudText Typo="Typo.h5" Class="ml-3">ITM Dashboard</MudText>
         <MudSpacer />
+        <MudTooltip Text="Toggle Dark/Light Mode">
+            <MudIconButton Icon="@(_isDarkMode? Icons.Material.Rounded.WbSunny : Icons.Material.Rounded.Brightness4)" Color="Color.Inherit" OnClick="@ToggleTheme" />
+        </MudTooltip>
     </MudAppBar>
     <MudDrawer @bind-Open="_drawerOpen" ClipMode="DrawerClipMode.Always" Elevation="2">
         <NavMenu />
     </MudDrawer>
-    <MudMainContent>
+    <MudMainContent Class="main-content">
         <MudContainer MaxWidth="MaxWidth.ExtraExtraLarge" Class="my-4 pt-4">
             @Body
         </MudContainer>
@@ -23,9 +28,15 @@
 
 @code {
     private bool _drawerOpen = true;
+    private bool _isDarkMode = true;
 
     private void DrawerToggle()
     {
         _drawerOpen = !_drawerOpen;
+    }
+
+    private void ToggleTheme()
+    {
+        _isDarkMode = !_isDarkMode;
     }
 }
