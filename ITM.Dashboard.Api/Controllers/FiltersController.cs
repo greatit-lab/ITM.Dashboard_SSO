@@ -1,5 +1,4 @@
 // ITM.Dashboard.Api/Controllers/FiltersController.cs
-
 using Microsoft.AspNetCore.Mvc;
 using Npgsql;
 using System;
@@ -92,6 +91,32 @@ public class FiltersController : ControllerBase
             return Ok(new DateRangeDto { MinDate = reader.GetDateTime(0), MaxDate = reader.GetDateTime(1) });
         }
         return Ok(new DateRangeDto());
+    }
+
+    [HttpGet("eqpidsbysite/{site}")]
+    public async Task<ActionResult<IEnumerable<string>>> GetEqpidsBySite(string site)
+    {
+        var results = new List<string>();
+        var dbInfo = DatabaseInfo.CreateDefault();
+        await using var conn = new NpgsqlConnection(dbInfo.GetConnectionString());
+        await conn.OpenAsync();
+
+        var sql = @"
+            SELECT T1.eqpid
+            FROM public.ref_equipment AS T1
+            INNER JOIN public.ref_sdwt AS T2 ON T1.sdwt = T2.sdwt
+            WHERE T2.site = @site
+            ORDER BY T1.eqpid;";
+
+        await using var cmd = new NpgsqlCommand(sql, conn);
+        cmd.Parameters.AddWithValue("site", site);
+
+        await using var reader = await cmd.ExecuteReaderAsync();
+        while (await reader.ReadAsync())
+        {
+            results.Add(reader.GetString(0));
+        }
+        return Ok(results);
     }
 
     // ▼▼▼ [수정] 모든 필터 값을 받아 동적으로 쿼리하는 새로운 공용 메서드 ▼▼▼
