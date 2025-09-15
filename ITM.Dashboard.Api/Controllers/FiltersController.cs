@@ -44,22 +44,32 @@ public class FiltersController : ControllerBase
         return Ok(results);
     }
 
-    // 특정 SDWT에 속하고, 실제 데이터가 있는 EQPID 목록 조회 API (변경 없음)
-    [HttpGet("eqpids/{sdwt}")]
+    // ▼▼▼ [수정] GetEqpids 메서드를 수정하여 sdwt가 null일 때 전체 EQPID를 반환하도록 합니다. ▼▼▼
+    [HttpGet("eqpids/{sdwt?}")] // sdwt를 선택적 파라미터로 변경
     public async Task<ActionResult<IEnumerable<string>>> GetEqpids(string sdwt)
     {
         var results = new List<string>();
         var dbInfo = DatabaseInfo.CreateDefault();
         await using var conn = new NpgsqlConnection(dbInfo.GetConnectionString());
         await conn.OpenAsync();
-        var sql = @"
+
+        var sql = new StringBuilder(@"
             SELECT DISTINCT T1.eqpid
             FROM public.ref_equipment AS T1
-            INNER JOIN public.plg_wf_flat AS T2 ON T1.eqpid = T2.eqpid
-            WHERE T1.sdwt = @sdwt
-            ORDER BY T1.eqpid;";
-        await using var cmd = new NpgsqlCommand(sql, conn);
-        cmd.Parameters.AddWithValue("sdwt", sdwt);
+            INNER JOIN public.plg_wf_flat AS T2 ON T1.eqpid = T2.eqpid");
+
+        if (!string.IsNullOrEmpty(sdwt))
+        {
+            sql.Append(" WHERE T1.sdwt = @sdwt");
+        }
+        sql.Append(" ORDER BY T1.eqpid;");
+
+        await using var cmd = new NpgsqlCommand(sql.ToString(), conn);
+        if (!string.IsNullOrEmpty(sdwt))
+        {
+            cmd.Parameters.AddWithValue("sdwt", sdwt);
+        }
+
         await using var reader = await cmd.ExecuteReaderAsync();
         while (await reader.ReadAsync()) { results.Add(reader.GetString(0)); }
         return Ok(results);
