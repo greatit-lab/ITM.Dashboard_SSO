@@ -10,7 +10,7 @@
 <MudPaper Class="pa-4 mb-4">
     <MudGrid Spacing="2" AlignItems="AlignItems.Center">
         <MudItem xs="6" sm="3" md="1">
-            <MudSelect T="string" Label="Site" Value="_selectedSite" ValueChanged="OnSiteChanged" Dense="true" Margin="Margin.Dense" Variant="Variant.Outlined">
+            <MudSelect T="string" Label="Site" Value="_selectedSite" ValueChanged="OnSiteChanged" Dense="true" Margin="Margin.Dense" Variant="Variant.Text">
                 @foreach (var site in _sites)
                 {
                     <MudSelectItem T="string" Value="@site">@site</MudSelectItem>
@@ -18,7 +18,7 @@
             </MudSelect>
         </MudItem>
         <MudItem xs="6" sm="3" md="2">
-            <MudSelect T="string" Label="SDWT" Value="_selectedSdwt" ValueChanged="OnSdwtChanged" Disabled="@(string.IsNullOrEmpty(_selectedSite))" Dense="true" Margin="Margin.Dense" Variant="Variant.Outlined">
+            <MudSelect T="string" Label="SDWT" Value="_selectedSdwt" ValueChanged="OnSdwtChanged" Disabled="@(string.IsNullOrEmpty(_selectedSite))" Dense="true" Margin="Margin.Dense" Variant="Variant.Text">
                 @foreach (var sdwt in _sdwts)
                 {
                     <MudSelectItem T="string" Value="@sdwt">@sdwt</MudSelectItem>
@@ -26,22 +26,21 @@
             </MudSelect>
         </MudItem>
         <MudItem xs="12" sm="6" md="2">
-            @* ▼▼▼ 1. `@ref`를 추가하여 컴포넌트를 참조할 변수를 지정합니다. ▼▼▼ *@
             <MudAutocomplete @ref="_eqpIdAutocomplete" T="string" Label="EQP ID (최대 5개)"
                              Values="_selectedEqpIds"
                              ValuesChanged="OnSelectedEqpIdsChanged"
                              SearchFunc="SearchEqpids"
-                             MultiSelection="true" Dense="true" Margin="Margin.Dense" MaxItems="5" Variant="Variant.Outlined"
+                             MultiSelection="true" Dense="true" Margin="Margin.Dense" MaxItems="5" Variant="Variant.Text"
                              Disabled="@(string.IsNullOrEmpty(_selectedSite) && string.IsNullOrEmpty(_selectedSdwt))" />
         </MudItem>
         <MudItem xs="6" sm="4" md="2">
-            <MudDatePicker Label="Start Date" @bind-Date="_startDate" Dense="true" Margin="Margin.Dense" Variant="Variant.Outlined" />
+            <MudDatePicker Label="Start Date" @bind-Date="_startDate" Dense="true" Margin="Margin.Dense" Variant="Variant.Text" />
         </MudItem>
         <MudItem xs="6" sm="4" md="2">
-            <MudDatePicker Label="End Date" @bind-Date="_endDate" Dense="true" Margin="Margin.Dense" Variant="Variant.Outlined" />
+            <MudDatePicker Label="End Date" @bind-Date="_endDate" Dense="true" Margin="Margin.Dense" Variant="Variant.Text" />
         </MudItem>
         <MudItem xs="12" sm="4" md="1">
-            <MudSelect T="int" Label="데이터 간격" @bind-Value="_selectedInterval" Dense="true" Margin="Margin.Dense" Variant="Variant.Outlined">
+            <MudSelect T="int" Label="데이터 간격" @bind-Value="_selectedInterval" Dense="true" Margin="Margin.Dense" Variant="Variant.Text">
                 <MudSelectItem T="int" Value="5">5분</MudSelectItem>
                 <MudSelectItem T="int" Value="10">10분</MudSelectItem>
                 <MudSelectItem T="int" Value="30">30분</MudSelectItem>
@@ -49,7 +48,6 @@
             </MudSelect>
         </MudItem>
         <MudItem xs="6" sm="6" md="1">
-            @* ▼▼▼ [수정] Disabled 조건을 null-safe하게 변경합니다. ▼▼▼ *@
             <MudButton Variant="Variant.Filled" Color="Color.Primary" OnClick="OnSearchClicked" Disabled="@(_selectedEqpIds == null || !_selectedEqpIds.Any())" FullWidth="true">조회</MudButton>
         </MudItem>
         <MudItem xs="6" sm="6" md="1">
