@@ -10,5 +10,7 @@ namespace ITM.Dashboard.Api.Models
         public string ErrorId { get; set; }
         public string ErrorLabel { get; set; }
         public string ErrorDesc { get; set; }
+        public string ExtraMessage1 { get; set; }
+        public string ExtraMessage2 { get; set; }
     }
 }
