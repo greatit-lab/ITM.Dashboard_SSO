@@ -157,13 +157,14 @@ else
     private List<string> _sdwts = new();
     private List<string> _availableEqpIds = new();
 
+    private List<PreAlignDataDto> _rawData = new();
     private List<ChartSeries> _xyDeviationSeries = new();
     private List<ChartSeries> _notchSeries = new();
     private string[] _chartXAxisLabels = Array.Empty<string>();
 
     private object _xyChartJsOptions = new();
     private object _notchChartJsOptions = new();
-    
+
     private Range<double> _xyRange = new(0, 1);
     private double _overallXyMin = 0;
     private double _overallXyMax = 1;
@@ -172,13 +173,14 @@ else
     private double _overallNotchMin = 0;
     private double _overallNotchMax = 1;
 
+    private Range<int> _xIndexRange = new(0, 1);
+
     protected override async Task OnInitializedAsync()
     {
-        ApplyAxisRanges();
         var client = HttpClientFactory.CreateClient("ITM.Dashboard.Api");
         _sites = await client.GetFromJsonAsync<List<string>>("api/Filters/sites") ?? new();
     }
-    
+
     private void OnXyRangeChanged(Range<double> newRange)
     {
         _xyRange = newRange;
@@ -189,6 +191,13 @@ else
     {
         _notchRange = newRange;
         ApplyAxisRanges();
+    }
+
+    private void OnXIndexRangeChanged(Range<int> newRange)
+    {
+        _xIndexRange = newRange;
+        ApplyAxisRanges();
+        ApplyXFilter();
     }
 
     private void ApplyAxisRanges()
@@ -208,6 +217,32 @@ else
     {
         _selectedSdwt = newSdwt;
         await ResetDependentFilters("sdwt");
+    }
+
+    private async Task ResetDependentFilters(string level)
+    {
+        if (level == "site")
+        {
+            _selectedSdwt = null;
+            _sdwts.Clear();
+        }
+        _selectedEqpId = null;
+        _availableEqpIds.Clear();
+
+        if (!string.IsNullOrEmpty(_selectedSite))
+        {
+            var client = HttpClientFactory.CreateClient("ITM.Dashboard.Api");
+            if (level == "site")
+            {
+                _sdwts = await client.GetFromJsonAsync<List<string>>($"api/Filters/sdwts/{_selectedSite}") ?? new();
+            }
+            
+            var url = string.IsNullOrEmpty(_selectedSdwt)
+                ? $"api/Filters/eqpidsbysite/{_selectedSite}"
+                : $"api/Filters/eqpids/{_selectedSdwt}";
+            _availableEqpIds = await client.GetFromJsonAsync<List<string>>(url) ?? new();
+        }
+        StateHasChanged();
     }
 
     private async Task ResetDependentFilters(string level)
@@ -249,6 +284,8 @@ else
 
             if (data != null && data.Any())
             {
+                _rawData = data;
+                _xIndexRange = new Range<int>(0, _rawData.Count -1);
                 PrepareChartData(data);
             }
         }
@@ -275,44 +312,60 @@ else
         _isSearched = false;
         ClearResults();
         
-        _xyRange = new(0, 1);
-        _notchRange = new(0, 1);
+        _xyRange = new Range<double>(0, 1);
+        _notchRange = new Range<double>(0, 1);
+        _xIndexRange = new Range<int>(0, 1);
         ApplyAxisRanges();
-        
+
         StateHasChanged();
     }
 
     private void ClearResults()
     {
+        _rawData.Clear();
         _xyDeviationSeries.Clear();
         _notchSeries.Clear();
         _chartXAxisLabels = Array.Empty<string>();
     }
 
-    private void PrepareChartData(List<PreAlignDataDto> data)
+    private void PrepareChartData()
     {
-        _xyDeviationSeries = new List<ChartSeries>
-        {
-            new ChartSeries { Name = "Xmm", Data = data.Select(d => d.Xmm).ToArray() },
-            new ChartSeries { Name = "Ymm", Data = data.Select(d => d.Ymm).ToArray() }
-        };
-        _notchSeries = new List<ChartSeries>
-        {
-            new ChartSeries { Name = "Notch", Data = data.Select(d => d.Notch).ToArray() }
-        };
-        _chartXAxisLabels = data.Select(d => d.Timestamp.ToString("MM-dd HH:mm")).ToArray();
-        
-        var xmmData = data.Select(d => d.Xmm);
-        var ymmData = data.Select(d => d.Ymm);
+        ApplyXFilter();
+
+        var xmmData = _rawData.Select(d => d.Xmm);
+        var ymmData = _rawData.Select(d => d.Ymm);
         _overallXyMin = Math.Min(xmmData.Min(), ymmData.Min());
         _overallXyMax = Math.Max(xmmData.Max(), ymmData.Max());
         _xyRange = new Range<double>(_overallXyMin, _overallXyMax);
 
-        var notchData = data.Select(d => d.Notch);
+        var notchData = _rawData.Select(d => d.Notch);
         _overallNotchMin = notchData.Min();
         _overallNotchMax = notchData.Max();
         _notchRange = new Range<double>(_overallNotchMin, _overallNotchMax);
 
         ApplyAxisRanges();
+    }
+
+    private void ApplyXFilter()
+    {
+        if (_rawData.Count == 0) return;
+
+        var start = Math.Max(0, _xIndexRange.Start);
+        var end = Math.Min(_rawData.Count - 1, _xIndexRange.End);
+
+        var filtered = _rawData.Skip(start).Take(end - start + 1).ToList();
+
+        _xyDeviationSeries = new List<ChartSeries>
+        {
+            new ChartSeries { Name = "Xmm", Data = filtered.Select(d => d.Xmm).ToArray() },
+            new ChartSeries { Name = "Ymm", Data = filtered.Select(d => d.Ymm).ToArray() }
+        };
+
+        _notchSeries = new List<ChartSeries>
+        {
+            new ChartSeries { Name = "Notch", Data = filtered.Select(d => d.Notch).ToArray() }
+        };
+
+        _chartXAxisLabels = filtered.Select(d => d.Timestamp.ToString("MM-dd HH:mm")).ToArray();
     }
 }
