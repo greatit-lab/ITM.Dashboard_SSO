@@ -2,15 +2,22 @@
 @page "/prealign-analytics"
 @using ITM.Dashboard.Web.Client.Models
 @inject IHttpClientFactory HttpClientFactory
+@using Blazor.ECharts
+@using Blazor.ECharts.Options
+@using Blazor.ECharts.Options.Series
+@using System.Linq
 
 <PageTitle>Pre-Align Analytics</PageTitle>
 
-<MudText Typo="Typo.h4" GutterBottom="true">Pre-Align 데이터 시각화</MudText>
+<MudStack Row="true" AlignItems="AlignItems.Center" Class="mb-2">
+    <MudIcon Icon="@Icons.Material.Rounded.GpsFixed" Size="Size.Large" />
+    <MudText Typo="Typo.h4">Pre-Align 분석</MudText>
+</MudStack>
 
 <MudPaper Class="pa-4 mb-4">
     <MudGrid Spacing="2" AlignItems="AlignItems.Center">
         <MudItem xs="6" sm="4" md="2">
-            <MudSelect T="string" Label="Site" Value="_selectedSite" ValueChanged="OnSiteChanged" Dense="true" Margin="Margin.Dense" Variant="Variant.Outlined">
+            <MudSelect T="string" Label="Site" Value="_selectedSite" ValueChanged="OnSiteChanged" Dense="true" Margin="Margin.Dense">
                 @foreach (var site in _sites)
                 {
                     <MudSelectItem T="string" Value="@site">@site</MudSelectItem>
@@ -18,48 +25,72 @@
             </MudSelect>
         </MudItem>
         <MudItem xs="6" sm="4" md="2">
-            <MudSelect T="string" Label="SDWT" Value="_selectedSdwt" ValueChanged="OnSdwtChanged" Disabled="@(string.IsNullOrEmpty(_selectedSite))" Dense="true" Margin="Margin.Dense" Variant="Variant.Outlined">
+            <MudSelect T="string" Label="SDWT" Value="_selectedSdwt" ValueChanged="OnSdwtChanged" Disabled="@(string.IsNullOrEmpty(_selectedSite))" Dense="true" Margin="Margin.Dense">
                 @foreach (var sdwt in _sdwts)
                 {
                     <MudSelectItem T="string" Value="@sdwt">@sdwt</MudSelectItem>
                 }
             </MudSelect>
         </MudItem>
-        <MudItem xs="12" sm="4" md="3">
+        <MudItem xs="12" sm="4" md="2">
             <MudAutocomplete T="string" Label="EQP ID" @bind-Value="_selectedEqpId" SearchFunc="SearchEqpids"
-                             Dense="true" Margin="Margin.Dense" Variant="Variant.Outlined"
+                             ResetValueOnEmptyText="true" CoerceText="false" CoerceValue="false" Dense="true" Margin="Margin.Dense"
                              Disabled="@(string.IsNullOrEmpty(_selectedSite))" />
         </MudItem>
         <MudItem xs="6" sm="6" md="2">
-            <MudDatePicker Label="Start Date" @bind-Date="_startDate" Dense="true" Margin="Margin.Dense" Variant="Variant.Outlined" />
+            <MudDatePicker Label="Start Date" @bind-Date="_startDate" Dense="true" Margin="Margin.Dense" />
         </MudItem>
         <MudItem xs="6" sm="6" md="2">
-            <MudDatePicker Label="End Date" @bind-Date="_endDate" Dense="true" Margin="Margin.Dense" Variant="Variant.Outlined" />
+            <MudDatePicker Label="End Date" @bind-Date="_endDate" Dense="true" Margin="Margin.Dense" />
         </MudItem>
-        <MudItem xs="12" sm="12" md="1">
-            <MudButton Variant="Variant.Filled" Color="Color.Primary" OnClick="OnSearchClicked" Disabled="@(string.IsNullOrEmpty(_selectedEqpId))" FullWidth="true">조회</MudButton>
+        <MudItem xs="6" sm="6" md="1">
+            <MudButton Variant="Variant.Filled" Color="Color.Primary" OnClick="OnSearchClicked" Disabled="@(string.IsNullOrEmpty(_selectedEqpId))" FullWidth="true">Search</MudButton>
+        </MudItem>
+        <MudItem xs="6" sm="6" md="1">
+            <MudButton Variant="Variant.Outlined" OnClick="ResetFilters" FullWidth="true">Reset</MudButton>
         </MudItem>
     </MudGrid>
 </MudPaper>
 
 @if (_isLoading)
 {
-    <MudProgressCircular Color="Color.Primary" Indeterminate="true" />
+    <div class="d-flex justify-center mt-4">
+        <MudProgressCircular Color="Color.Primary" Indeterminate="true" />
+    </div>
 }
 else if (_isSearched)
 {
     <MudGrid Spacing="3">
-        <MudItem xs="12" md="6">
-            <MudPaper Class="pa-4" Style="height:100%">
-                @* [수정] 차트 제목을 'X-Y 편차 트렌드'로 변경하고, ChartType을 Line으로 지정합니다. *@
-                <MudText Typo="Typo.h6" GutterBottom="true">X-Y 편차 트렌드</MudText>
-                <MudChart ChartType="ChartType.Line" ChartSeries="_xyDeviationSeries" XAxisLabels="_chartXAxisLabels" Height="400px" ChartOptions="_lineOptions" />
+        <MudItem xs="12">
+            <MudPaper Class="pa-4">
+                <MudStack Spacing="2">
+                    <MudText Typo="Typo.h6">X-Y 편차 트렌드</MudText>
+                    @if (_preAlignData.Any())
+                    {
+                        <EChart @ref="_xyEchart" Option="_xyOption" Height="400px" />
+                        <MudText>Y축 범위</MudText>
+                        <MudRangeSlider Range="_yRangeXy" RangeChanged="OnXyYRangeChanged" Min="_overallXyMin" Max="_overallXyMax" Step="0.0001" />
+                        <MudText>X축 (시간) 범위</MudText>
+                        <MudRangeSlider T="double" Range="_xRange" RangeChanged="OnXRangeChanged" Min="0" Max="@(_preAlignData.Count - 1)" Step="1" />
+                    }
+                    else { <MudText>데이터가 없습니다.</MudText> }
+                </MudStack>
             </MudPaper>
         </MudItem>
-        <MudItem xs="12" md="6">
-            <MudPaper Class="pa-4" Style="height:100%">
-                <MudText Typo="Typo.h6" GutterBottom="true">Notch 값 트렌드</MudText>
-                <MudChart ChartType="ChartType.Line" ChartSeries="_notchSeries" XAxisLabels="_chartXAxisLabels" Height="400px" ChartOptions="_lineOptions" />
+        <MudItem xs="12">
+            <MudPaper Class="pa-4">
+                <MudStack Spacing="2">
+                    <MudText Typo="Typo.h6">Notch 값 트렌드</MudText>
+                    @if (_preAlignData.Any())
+                    {
+                        <EChart @ref="_notchEchart" Option="_notchOption" Height="400px" />
+                        <MudText>Y축 범위</MudText>
+                        <MudRangeSlider Range="_yRangeNotch" RangeChanged="OnNotchYRangeChanged" Min="_overallNotchMin" Max="_overallNotchMax" Step="0.0001" />
+                        <MudText>X축 (시간) 범위</MudText>
+                        <MudRangeSlider T="double" Range="_xRange" RangeChanged="OnXRangeChanged" Min="0" Max="@(_preAlignData.Count - 1)" Step="1" />
+                    }
+                    else { <MudText>데이터가 없습니다.</MudText> }
+                </MudStack>
             </MudPaper>
         </MudItem>
     </MudGrid>
@@ -84,11 +115,25 @@ else
     private List<string> _sdwts = new();
     private List<string> _availableEqpIds = new();
 
-    // 차트 데이터
-    private List<ChartSeries> _xyDeviationSeries = new(); // [수정] X-Y 편차 데이터를 담을 변수
-    private List<ChartSeries> _notchSeries = new();
-    private string[] _chartXAxisLabels = Array.Empty<string>();
-    private ChartOptions _lineOptions = new();
+    // 원본 데이터
+    private List<PreAlignDataDto> _preAlignData = new();
+
+    // ▼▼▼ [수정] EChart 참조 및 강력한 형식의 옵션 객체로 변경합니다. ▼▼▼
+    private EChart _xyEchart;
+    private EChart _notchEchart;
+    private EChartsOption<LineSeries> _xyOption = new();
+    private EChartsOption<LineSeries> _notchOption = new();
+
+    // 슬라이더 범위 변수
+    private Range<double> _yRangeXy = new(0, 1);
+    private double _overallXyMin = 0;
+    private double _overallXyMax = 1;
+
+    private Range<double> _yRangeNotch = new(0, 1);
+    private double _overallNotchMin = 0;
+    private double _overallNotchMax = 1;
+
+    private Range<double> _xRange = new(0, 1);
 
     protected override async Task OnInitializedAsync()
     {
@@ -96,37 +141,125 @@ else
         _sites = await client.GetFromJsonAsync<List<string>>("api/Filters/sites") ?? new();
     }
 
+    private async Task UpdateChartOptions()
+    {
+        if (!_preAlignData.Any() || _preAlignData.Count <= 1) return;
+
+        // X축 범위 계산
+        int startX = (int)Math.Round(_xRange.Start);
+        int endX = (int)Math.Round(_xRange.End);
+
+        // XY 편차 차트 옵션
+        _xyOption = new EChartsOption<LineSeries>
+        {
+            Tooltip = new Tooltip { Trigger = "axis" },
+            Legend = new Legend { Data = new[] { "Xmm", "Ymm" } },
+            XAxis = new XAxis { Type = "category", Data = _preAlignData.Select(d => d.Timestamp.ToString("MM-dd HH:mm")).ToList() },
+            YAxis = new YAxis { Type = "value", Min = _yRangeXy.Start, Max = _yRangeXy.End },
+            Series = new List<LineSeries>
+            {
+                new() { Name = "Xmm", Type = "line", Data = _preAlignData.Select(d => (object)d.Xmm).ToList() },
+                new() { Name = "Ymm", Type = "line", Data = _preAlignData.Select(d => (object)d.Ymm).ToList() }
+            },
+            DataZoom = new List<DataZoom> { new() { Type = "inside", StartValue = startX, EndValue = endX } }
+        };
+
+        // Notch 값 차트 옵션
+        _notchOption = new EChartsOption<LineSeries>
+        {
+            Tooltip = new Tooltip { Trigger = "axis" },
+            Legend = new Legend { Data = new[] { "Notch" } },
+            XAxis = new XAxis { Type = "category", Data = _preAlignData.Select(d => d.Timestamp.ToString("MM-dd HH:mm")).ToList() },
+            YAxis = new YAxis { Type = "value", Min = _yRangeNotch.Start, Max = _yRangeNotch.End },
+            Series = new List<LineSeries>
+            {
+                new() { Name = "Notch", Type = "line", Data = _preAlignData.Select(d => (object)d.Notch).ToList() }
+            },
+            DataZoom = new List<DataZoom> { new() { Type = "inside", StartValue = startX, EndValue = endX } }
+        };
+
+        if (_xyEchart != null) await _xyEchart.SetOption(_xyOption, true);
+        if (_notchEchart != null) await _notchEchart.SetOption(_notchOption, true);
+    }
+
+    private async void OnXyYRangeChanged(Range<double> newRange) { _yRangeXy = newRange; await UpdateChartOptions(); }
+    private async void OnNotchYRangeChanged(Range<double> newRange) { _yRangeNotch = newRange; await UpdateChartOptions(); }
+    private async void OnXRangeChanged(Range<double> newRange) { _xRange = newRange; await UpdateChartOptions(); }
+
+    private async Task OnSearchClicked()
+    {
+        if (string.IsNullOrEmpty(_selectedEqpId) || _startDate == null || _endDate == null) return;
+        _isLoading = true;
+        _isSearched = true;
+        _preAlignData.Clear();
+        StateHasChanged();
+
+        try
+        {
+            var client = HttpClientFactory.CreateClient("ITM.Dashboard.Api");
+            var query = $"eqpid={Uri.EscapeDataString(_selectedEqpId)}&startDate={_startDate.Value:yyyy-MM-dd}&endDate={_endDate.Value:yyyy-MM-dd}";
+            _preAlignData = await client.GetFromJsonAsync<List<PreAlignDataDto>>($"api/PreAlignAnalytics/data?{query}") ?? new List<PreAlignDataDto>();
+
+            if (_preAlignData.Any())
+            {
+                var xmmData = _preAlignData.Select(d => d.Xmm);
+                var ymmData = _preAlignData.Select(d => d.Ymm);
+                _overallXyMin = Math.Min(xmmData.Min(), ymmData.Min());
+                _overallXyMax = Math.Max(xmmData.Max(), ymmData.Max());
+                _yRangeXy = new Range<double>(_overallXyMin, _overallXyMax);
+
+                var notchData = _preAlignData.Select(d => d.Notch);
+                _overallNotchMin = notchData.Min();
+                _overallNotchMax = notchData.Max();
+                _yRangeNotch = new Range<double>(_overallNotchMin, _overallNotchMax);
+
+                _xRange = new Range<double>(0, _preAlignData.Count > 0 ? _preAlignData.Count - 1 : 0);
+            }
+        }
+        catch (Exception ex)
+        {
+            Console.WriteLine($"Error loading Pre-Align Analytics data: {ex.Message}");
+        }
+        finally
+        {
+            _isLoading = false;
+            StateHasChanged();
+        }
+    }
+
+    protected override async Task OnAfterRenderAsync(bool firstRender)
+    {
+        if (!firstRender && _isSearched && !_isLoading && _preAlignData.Any())
+        {
+            await UpdateChartOptions();
+        }
+    }
+
     private async Task OnSiteChanged(string newSite)
     {
         _selectedSite = newSite;
-        _selectedSdwt = null;
-        _sdwts.Clear();
-        _selectedEqpId = null;
-        _availableEqpIds.Clear();
-
-        if (!string.IsNullOrEmpty(_selectedSite))
-        {
-            var client = HttpClientFactory.CreateClient("ITM.Dashboard.Api");
-            _sdwts = await client.GetFromJsonAsync<List<string>>($"api/Filters/sdwts/{_selectedSite}") ?? new();
-            _availableEqpIds = await client.GetFromJsonAsync<List<string>>($"api/Filters/eqpidsbysite/{_selectedSite}") ?? new();
-        }
+        await ResetDependentFilters("site");
     }
 
     private async Task OnSdwtChanged(string newSdwt)
     {
         _selectedSdwt = newSdwt;
+        await ResetDependentFilters("sdwt");
+    }
+
+    private async Task ResetDependentFilters(string level)
+    {
+        if (level == "site") { _selectedSdwt = null; _sdwts.Clear(); }
         _selectedEqpId = null;
         _availableEqpIds.Clear();
-
-        var client = HttpClientFactory.CreateClient("ITM.Dashboard.Api");
-        if (!string.IsNullOrEmpty(_selectedSdwt))
+        if (!string.IsNullOrEmpty(_selectedSite))
         {
-            _availableEqpIds = await client.GetFromJsonAsync<List<string>>($"api/Filters/eqpids/{_selectedSdwt}") ?? new();
+            var client = HttpClientFactory.CreateClient("ITM.Dashboard.Api");
+            if (level == "site") { _sdwts = await client.GetFromJsonAsync<List<string>>($"api/Filters/sdwts/{_selectedSite}") ?? new(); }
+            var url = string.IsNullOrEmpty(_selectedSdwt) ? $"api/Filters/eqpidsbysite/{_selectedSite}" : $"api/Filters/eqpids/{_selectedSdwt}";
+            _availableEqpIds = await client.GetFromJsonAsync<List<string>>(url) ?? new();
         }
-        else if (!string.IsNullOrEmpty(_selectedSite))
-        {
-            _availableEqpIds = await client.GetFromJsonAsync<List<string>>($"api/Filters/eqpidsbysite/{_selectedSite}") ?? new();
-        }
+        StateHasChanged();
     }
 
     private async Task<IEnumerable<string>> SearchEqpids(string value, CancellationToken token)
@@ -136,48 +269,17 @@ else
         return _availableEqpIds.Where(x => x.Contains(value, StringComparison.InvariantCultureIgnoreCase));
     }
 
-    private async Task OnSearchClicked()
+    private void ResetFilters()
     {
-        if (string.IsNullOrEmpty(_selectedEqpId) || _startDate == null || _endDate == null) return;
-
-        _isLoading = true;
-        _isSearched = true;
+        _selectedSite = null;
+        _selectedSdwt = null;
+        _selectedEqpId = null;
+        _startDate = DateTime.Now.Date.AddDays(-6);
+        _endDate = DateTime.Now.Date;
+        _sdwts.Clear();
+        _availableEqpIds.Clear();
+        _isSearched = false;
+        _preAlignData.Clear();
         StateHasChanged();
-
-        var client = HttpClientFactory.CreateClient("ITM.Dashboard.Api");
-        var query = $"eqpid={Uri.EscapeDataString(_selectedEqpId)}&startDate={_startDate.Value:o}&endDate={_endDate.Value:o}";
-        var data = await client.GetFromJsonAsync<List<PreAlignDataDto>>($"api/PreAlignAnalytics/data?{query}");
-
-        if (data != null && data.Any())
-        {
-            PrepareChartData(data);
-        }
-        else
-        {
-            _xyDeviationSeries.Clear();
-            _notchSeries.Clear();
-        }
-
-        _isLoading = false;
-        StateHasChanged();
-    }
-
-    private void PrepareChartData(List<PreAlignDataDto> data)
-    {
-        // [수정] X-Y 편차 트렌드 차트 데이터를 준비합니다. (두 개의 시리즈)
-        _xyDeviationSeries = new List<ChartSeries>
-        {
-            new ChartSeries { Name = "Xmm", Data = data.Select(d => d.Xmm).ToArray() },
-            new ChartSeries { Name = "Ymm", Data = data.Select(d => d.Ymm).ToArray() }
-        };
-
-        // Notch 트렌드 차트 데이터 준비
-        _notchSeries = new List<ChartSeries>
-        {
-            new ChartSeries { Name = "Notch", Data = data.Select(d => d.Notch).ToArray() }
-        };
-
-        // X축 레이블은 두 차트가 공통으로 사용합니다.
-        _chartXAxisLabels = data.Select(d => d.Timestamp.ToString("MM-dd HH:mm")).ToArray();
     }
 }
