@@ -57,19 +57,37 @@
 else if (_isSearched)
 {
     <MudGrid Spacing="3">
+        <!-- X-Y 편차 -->
         <MudItem xs="12" md="6">
-            @* ▼▼▼ [수정] MudPaper 내부를 MudStack으로 감싸 레이아웃을 명확히 합니다. ▼▼▼ *@
             <MudPaper Class="pa-4">
-                <MudStack Spacing="2">
+                <MudStack Spacing="3">
                     <MudText Typo="Typo.h6">X-Y 편차 트렌드</MudText>
+
                     @if (_xyDeviationSeries.Any())
                     {
-                        <MudChart ChartType="ChartType.Line" ChartSeries="_xyDeviationSeries" XAxisLabels="_chartXAxisLabels" Height="400px" Options="_xyChartJsOptions" />
-                        <MudRangeSlider Range="_xyRange" RangeChanged="OnXyRangeChanged" Min="_overallXyMin" Max="_overallXyMax" Step="0.0001">
-                            Y축 범위: 
-                            <MudChip T="object" Size="Size.Small" Color="Color.Primary">@_xyRange.Start.ToString("F4")</MudChip> ~ 
+                        <MudChart ChartType="ChartType.Line"
+                                  ChartSeries="_xyDeviationSeries"
+                                  XAxisLabels="_chartXAxisLabels"
+                                  Height="400px"
+                                  Options="_xyChartJsOptions" />
+
+                        <!-- Y축 슬라이더 -->
+                        <MudRangeSlider Range="_xyRange" RangeChanged="OnXyRangeChanged"
+                                        Min="@_overallXyMin" Max="@_overallXyMax" Step="0.0001" />
+                        <div>
+                            Y축 범위:
+                            <MudChip T="object" Size="Size.Small" Color="Color.Primary">@_xyRange.Start.ToString("F4")</MudChip> ~
                             <MudChip T="object" Size="Size.Small" Color="Color.Primary">@_xyRange.End.ToString("F4")</MudChip>
-                        </MudRangeSlider>
+                        </div>
+
+                        <!-- X축 슬라이더 -->
+                        <MudRangeSlider Range="_xIndexRange" RangeChanged="OnXIndexRangeChanged"
+                                        Min="0" Max="@(_rawData.Count - 1)" Step="1" />
+                        <div>
+                            X축 범위:
+                            <MudChip T="object" Size="Size.Small" Color="Color.Secondary">@_chartXAxisLabels.FirstOrDefault()</MudChip> ~
+                            <MudChip T="object" Size="Size.Small" Color="Color.Secondary">@_chartXAxisLabels.LastOrDefault()</MudChip>
+                        </div>
                     }
                     else
                     {
@@ -78,19 +96,38 @@ else if (_isSearched)
                 </MudStack>
             </MudPaper>
         </MudItem>
+
+        <!-- Notch -->
         <MudItem xs="12" md="6">
-            @* ▼▼▼ [수정] MudPaper 내부를 MudStack으로 감싸 레이아웃을 명확히 합니다. ▼▼▼ *@
             <MudPaper Class="pa-4">
-                <MudStack Spacing="2">
+                <MudStack Spacing="3">
                     <MudText Typo="Typo.h6">Notch 값 트렌드</MudText>
+
                     @if (_notchSeries.Any())
                     {
-                        <MudChart ChartType="ChartType.Line" ChartSeries="_notchSeries" XAxisLabels="_chartXAxisLabels" Height="400px" Options="_notchChartJsOptions" />
-                        <MudRangeSlider Range="_notchRange" RangeChanged="OnNotchRangeChanged" Min="_overallNotchMin" Max="_overallNotchMax" Step="0.0001">
-                            Y축 범위: 
-                            <MudChip T="object" Size="Size.Small" Color="Color.Primary">@_notchRange.Start.ToString("F4")</MudChip> ~ 
+                        <MudChart ChartType="ChartType.Line"
+                                  ChartSeries="_notchSeries"
+                                  XAxisLabels="_chartXAxisLabels"
+                                  Height="400px"
+                                  Options="_notchChartJsOptions" />
+
+                        <!-- Y축 슬라이더 -->
+                        <MudRangeSlider Range="_notchRange" RangeChanged="OnNotchRangeChanged"
+                                        Min="@_overallNotchMin" Max="@_overallNotchMax" Step="0.0001" />
+                        <div>
+                            Y축 범위:
+                            <MudChip T="object" Size="Size.Small" Color="Color.Primary">@_notchRange.Start.ToString("F4")</MudChip> ~
                             <MudChip T="object" Size="Size.Small" Color="Color.Primary">@_notchRange.End.ToString("F4")</MudChip>
-                        </MudRangeSlider>
+                        </div>
+
+                        <!-- X축 슬라이더 (Notch 차트도 동일 적용) -->
+                        <MudRangeSlider Range="_xIndexRange" RangeChanged="OnXIndexRangeChanged"
+                                        Min="0" Max="@(_rawData.Count - 1)" Step="1" />
+                        <div>
+                            X축 범위:
+                            <MudChip T="object" Size="Size.Small" Color="Color.Secondary">@_chartXAxisLabels.FirstOrDefault()</MudChip> ~
+                            <MudChip T="object" Size="Size.Small" Color="Color.Secondary">@_chartXAxisLabels.LastOrDefault()</MudChip>
+                        </div>
                     }
                     else
                     {
