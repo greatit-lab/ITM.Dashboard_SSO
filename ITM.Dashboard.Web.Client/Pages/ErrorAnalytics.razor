@@ -5,7 +5,10 @@
 
 <PageTitle>Error Analytics</PageTitle>
 
-<MudText Typo="Typo.h4" GutterBottom="true">에러 상세 분석</MudText>
+<MudStack Row="true" AlignItems="AlignItems.Center" Class="mb-2">
+    <MudIcon Icon="@Icons.Material.Rounded.Warning" Size="Size.Large" />
+    <MudText Typo="Typo.h4">Error 현황</MudText>
+</MudStack>
 
 <MudPaper Class="pa-4 mb-4">
     <MudGrid Spacing="2" AlignItems="AlignItems.Center">
@@ -49,19 +52,19 @@ else if (_isSearched)
     <MudGrid Spacing="3">
         @* KPI Cards *@
         <MudItem xs="12" sm="6" md="3">
-            <MudPaper Class="pa-4" Style="height:100%"><MudText Typo="Typo.subtitle1">총 에러 발생 건수</MudText><MudText Typo="Typo.h4" Color="Color.Error">@_summary?.TotalErrorCount</MudText></MudPaper>
+            <MudPaper Class="pa-4" Style="height:100%"><MudText Typo="Typo.subtitle1">Total Error 발생건</MudText><MudText Typo="Typo.h4" Color="Color.Error">@_summary?.TotalErrorCount</MudText></MudPaper>
         </MudItem>
         <MudItem xs="12" sm="6" md="3">
-            <MudPaper Class="pa-4" Style="height:100%"><MudText Typo="Typo.subtitle1">에러 발생 장비 수</MudText><MudText Typo="Typo.h4">@_summary?.ErrorEqpCount</MudText></MudPaper>
+            <MudPaper Class="pa-4" Style="height:100%"><MudText Typo="Typo.subtitle1">Error 발생 장비수</MudText><MudText Typo="Typo.h4">@_summary?.ErrorEqpCount</MudText></MudPaper>
         </MudItem>
         <MudItem xs="12" sm="12" md="6">
-            <MudPaper Class="pa-4" Style="height:100%"><MudText Typo="Typo.subtitle1">최다 발생 에러</MudText><MudText Typo="Typo.h4">@_summary?.TopErrorId (@_summary?.TopErrorCount 건)</MudText></MudPaper>
+            <MudPaper Class="pa-4" Style="height:100%"><MudText Typo="Typo.subtitle1">최다 발생 Error</MudText><MudText Typo="Typo.h4">@_summary?.TopErrorId (@_summary?.TopErrorCount 건)</MudText></MudPaper>
         </MudItem>
 
         @* Charts *@
         <MudItem xs="12" md="8">
             <MudPaper Class="pa-4" Style="height:100%">
-                <MudText Typo="Typo.h6" GutterBottom="true">시간대별 에러 발생 트렌드</MudText>
+                <MudText Typo="Typo.h6" GutterBottom="true">Error 발생 Time Trend</MudText>
                 <MudChart ChartType="ChartType.Bar" ChartSeries="_trendSeries" XAxisLabels="_trendXAxisLabels" Height="300px" />
             </MudPaper>
         </MudItem>
@@ -84,11 +87,11 @@ else if (_isSearched)
             @* [수정] 서버사이드 페이징을 위해 MudDataGrid 사용 *@
             <MudDataGrid T="ErrorLogDto" ServerData="LoadGridData" @ref="_grid" Dense="true" Hover="true" Striped="true" RowsPerPage="10">
                 <Columns>
-                    <PropertyColumn Property="x => x.TimeStamp" Title="발생 시간" Format="yy-MM-dd HH:mm:ss" />
+                    <PropertyColumn Property="x => x.TimeStamp" Title="Error Time" Format="yy-MM-dd HH:mm:ss" />
                     <PropertyColumn Property="x => x.EqpId" Title="EQP ID" />
-                    <PropertyColumn Property="x => x.ErrorId" Title="에러 ID" />
-                    <PropertyColumn Property="x => x.ErrorLabel" Title="에러 라벨" />
-                    <PropertyColumn Property="x => x.ErrorDesc" Title="상세 설명" />
+                    <PropertyColumn Property="x => x.ErrorId" Title="Error ID" />
+                    <PropertyColumn Property="x => x.ErrorLabel" Title="Error Label" />
+                    <PropertyColumn Property="x => x.ErrorDesc" Title="Error Description" />
                 </Columns>
                 <PagerContent>
                     <MudDataGridPager T="ErrorLogDto" />
