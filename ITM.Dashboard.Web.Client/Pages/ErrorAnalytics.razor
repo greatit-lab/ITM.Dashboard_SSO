@@ -7,7 +7,7 @@
 
 <MudStack Row="true" AlignItems="AlignItems.Center" Class="mb-2">
     <MudIcon Icon="@Icons.Material.Rounded.Warning" Size="Size.Large" />
-    <MudText Typo="Typo.h4">Error 현황</MudText>
+    <MudText Typo="Typo.h4">Error Analytics</MudText>
 </MudStack>
 
 <MudPaper Class="pa-4 mb-4">
@@ -58,14 +58,25 @@ else if (_isSearched)
             <MudPaper Class="pa-4" Style="height:100%"><MudText Typo="Typo.subtitle1">Error 발생 장비수</MudText><MudText Typo="Typo.h4">@_summary?.ErrorEqpCount</MudText></MudPaper>
         </MudItem>
         <MudItem xs="12" sm="12" md="6">
-            <MudPaper Class="pa-4" Style="height:100%"><MudText Typo="Typo.subtitle1">최다 발생 Error</MudText><MudText Typo="Typo.h4">@_summary?.TopErrorId (@_summary?.TopErrorCount 건)</MudText></MudPaper>
+            <MudPaper Class="pa-4" Style="height:100%">
+                <MudText Typo="Typo.subtitle1">최다 발생 Error</MudText>
+                @* ▼▼▼ [수정] ID와 Label을 함께 표시하도록 변경합니다. ▼▼▼ *@
+                <MudText Typo="Typo.h5">
+                    @_summary?.TopErrorId
+                    @if (!string.IsNullOrEmpty(_summary?.TopErrorLabel))
+                    {
+                        <MudText Inline="true" Typo="Typo.h6" Class="ml-2 mud-text-secondary">@_summary.TopErrorLabel</MudText>
+                    }
+                </MudText>
+                <MudText>@_summary?.TopErrorCount 건</MudText>
+            </MudPaper>
         </MudItem>
 
         @* Charts *@
         <MudItem xs="12" md="8">
             <MudPaper Class="pa-4" Style="height:100%">
                 <MudText Typo="Typo.h6" GutterBottom="true">Error 발생 Time Trend</MudText>
-                <MudChart ChartType="ChartType.Bar" ChartSeries="_trendSeries" XAxisLabels="_trendXAxisLabels" Height="300px" />
+                <MudChart ChartType="ChartType.Bar" ChartSeries="_trendSeries" XAxisLabels="_trendXAxisLabels" Height="200px" Width="100%" />
             </MudPaper>
         </MudItem>
         <MudItem xs="12" md="4">
@@ -73,7 +84,7 @@ else if (_isSearched)
                 <MudText Typo="Typo.h6" GutterBottom="true">장비별 에러 발생 현황</MudText>
                 @if (_donutChartInput.Any())
                 {
-                    <MudChart ChartType="ChartType.Donut" InputData="@_donutChartInput" InputLabels="@_donutChartLabels" Height="300px" />
+                    <MudChart ChartType="ChartType.Donut" InputData="@_donutChartInput" InputLabels="@_donutChartLabels" Height="200px" Width="100%" />
                 }
                 else
                 {
@@ -92,6 +103,9 @@ else if (_isSearched)
                     <PropertyColumn Property="x => x.ErrorId" Title="Error ID" />
                     <PropertyColumn Property="x => x.ErrorLabel" Title="Error Label" />
                     <PropertyColumn Property="x => x.ErrorDesc" Title="Error Description" />
+                    @* ▼▼▼ [추가] 새로운 컬럼 2개를 추가합니다. ▼▼▼ *@
+                    <PropertyColumn Property="x => x.ExtraMessage1" Title="Extra Message 1" />
+                    <PropertyColumn Property="x => x.ExtraMessage2" Title="Extra Message 2" />
                 </Columns>
                 <PagerContent>
                     <MudDataGridPager T="ErrorLogDto" />
