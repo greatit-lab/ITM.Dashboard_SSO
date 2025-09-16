@@ -34,13 +34,12 @@
         }
         else if (_chartData != null && _chartData.Any())
         {
-            <MudChart 
-                @bind-SelectedIndex="_selectedIndex" 
-                ChartType="ChartType.Line" 
-                ChartSeries="_chartSeries" 
-                XAxisLabels="_chartXAxisLabels" 
-                Width="100%" Height="400px" 
-                Options="@_chartJsOptions" />
+            <MudChart @bind-SelectedIndex="_selectedIndex"
+                    ChartType="ChartType.Line"
+                    ChartSeries="_chartSeries"
+                    XAxisLabels="_chartXAxisLabels"
+                    Width="100%" Height="400px"
+                    Options="@_chartJsOptions" />
         }
         else
         {
