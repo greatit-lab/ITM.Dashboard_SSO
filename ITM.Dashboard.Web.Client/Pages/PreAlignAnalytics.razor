@@ -57,72 +57,28 @@
 else if (_isSearched)
 {
     <MudGrid Spacing="3">
-        <!-- X-Y 편차 -->
-        <MudItem xs="12" md="6">
+        <MudItem xs="12">
             <MudPaper Class="pa-4">
                 <MudStack Spacing="3">
-                    <MudText Typo="Typo.h6">X-Y 편차 트렌드</MudText>
-
-                    @if (_xyDeviationSeries.Any())
+                    @if (_allSeries.Any())
                     {
+                        <MudStack Row="true" Justify="Justify.SpaceBetween" AlignItems="AlignItems.Center">
+                            <MudText Typo="Typo.h6">Pre-Align Trend</MudText>
+                            <MudStack Row="true">
+                                <MudCheckBox T="bool" Checked="@_showXmm" CheckedChanged="@( (bool v) => { _showXmm = v; UpdateVisibleChartSeries(); })" Label="Xmm" Color="Color.Primary" Size="Size.Small" />
+                                <MudCheckBox T="bool" Checked="@_showYmm" CheckedChanged="@( (bool v) => { _showYmm = v; UpdateVisibleChartSeries(); })" Label="Ymm" Color="Color.Secondary" Size="Size.Small" />
+                                <MudCheckBox T="bool" Checked="@_showNotch" CheckedChanged="@( (bool v) => { _showNotch = v; UpdateVisibleChartSeries(); })" Label="Notch" Color="Color.Success" Size="Size.Small" />
+                            </MudStack>
+                        </MudStack>
+
                         <MudChart ChartType="ChartType.Line"
-                                  ChartSeries="_xyDeviationSeries"
+                                  ChartSeries="_visibleSeries"
                                   XAxisLabels="_chartXAxisLabels"
                                   Height="400px"
-                                  Options="_xyChartJsOptions" />
+                                  Options="_chartJsOptions" />
 
-                        <!-- Y축 슬라이더 -->
-                        <MudRangeSlider Range="_xyRange" RangeChanged="OnXyRangeChanged"
-                                        Min="@_overallXyMin" Max="@_overallXyMax" Step="0.0001" />
-                        <div>
-                            Y축 범위:
-                            <MudChip T="object" Size="Size.Small" Color="Color.Primary">@_xyRange.Start.ToString("F4")</MudChip> ~
-                            <MudChip T="object" Size="Size.Small" Color="Color.Primary">@_xyRange.End.ToString("F4")</MudChip>
-                        </div>
-
-                        <!-- X축 슬라이더 -->
                         <MudRangeSlider Range="_xIndexRange" RangeChanged="OnXIndexRangeChanged"
-                                        Min="0" Max="@(_rawData.Count - 1)" Step="1" />
-                        <div>
-                            X축 범위:
-                            <MudChip T="object" Size="Size.Small" Color="Color.Secondary">@_chartXAxisLabels.FirstOrDefault()</MudChip> ~
-                            <MudChip T="object" Size="Size.Small" Color="Color.Secondary">@_chartXAxisLabels.LastOrDefault()</MudChip>
-                        </div>
-                    }
-                    else
-                    {
-                        <MudText>데이터가 없습니다.</MudText>
-                    }
-                </MudStack>
-            </MudPaper>
-        </MudItem>
-
-        <!-- Notch -->
-        <MudItem xs="12" md="6">
-            <MudPaper Class="pa-4">
-                <MudStack Spacing="3">
-                    <MudText Typo="Typo.h6">Notch 값 트렌드</MudText>
-
-                    @if (_notchSeries.Any())
-                    {
-                        <MudChart ChartType="ChartType.Line"
-                                  ChartSeries="_notchSeries"
-                                  XAxisLabels="_chartXAxisLabels"
-                                  Height="400px"
-                                  Options="_notchChartJsOptions" />
-
-                        <!-- Y축 슬라이더 -->
-                        <MudRangeSlider Range="_notchRange" RangeChanged="OnNotchRangeChanged"
-                                        Min="@_overallNotchMin" Max="@_overallNotchMax" Step="0.0001" />
-                        <div>
-                            Y축 범위:
-                            <MudChip T="object" Size="Size.Small" Color="Color.Primary">@_notchRange.Start.ToString("F4")</MudChip> ~
-                            <MudChip T="object" Size="Size.Small" Color="Color.Primary">@_notchRange.End.ToString("F4")</MudChip>
-                        </div>
-
-                        <!-- X축 슬라이더 (Notch 차트도 동일 적용) -->
-                        <MudRangeSlider Range="_xIndexRange" RangeChanged="OnXIndexRangeChanged"
-                                        Min="0" Max="@(_rawData.Count - 1)" Step="1" />
+                                        Min="0" Max="@(_rawData.Count > 0 ? _rawData.Count - 1 : 1)" Step="1" />
                         <div>
                             X축 범위:
                             <MudChip T="object" Size="Size.Small" Color="Color.Secondary">@_chartXAxisLabels.FirstOrDefault()</MudChip> ~
@@ -143,6 +99,7 @@ else
     <MudAlert Severity="Severity.Info">조회할 장비를 선택 후, 조회 버튼을 클릭하세요.</MudAlert>
 }
 
+
 @code {
     private bool _isLoading = false;
     private bool _isSearched = false;
@@ -156,22 +113,16 @@ else
     private List<string> _sites = new();
     private List<string> _sdwts = new();
     private List<string> _availableEqpIds = new();
-
     private List<PreAlignDataDto> _rawData = new();
-    private List<ChartSeries> _xyDeviationSeries = new();
-    private List<ChartSeries> _notchSeries = new();
+
+    private List<ChartSeries> _allSeries = new();
+    private List<ChartSeries> _visibleSeries = new();
     private string[] _chartXAxisLabels = Array.Empty<string>();
+    private object _chartJsOptions = new();
 
-    private object _xyChartJsOptions = new();
-    private object _notchChartJsOptions = new();
-
-    private Range<double> _xyRange = new(0, 1);
-    private double _overallXyMin = 0;
-    private double _overallXyMax = 1;
-
-    private Range<double> _notchRange = new(0, 1);
-    private double _overallNotchMin = 0;
-    private double _overallNotchMax = 1;
+    private bool _showXmm = true;
+    private bool _showYmm = true;
+    private bool _showNotch = true;
 
     private Range<int> _xIndexRange = new(0, 1);
 
@@ -179,32 +130,13 @@ else
     {
         var client = HttpClientFactory.CreateClient("ITM.Dashboard.Api");
         _sites = await client.GetFromJsonAsync<List<string>>("api/Filters/sites") ?? new();
-    }
-
-    private void OnXyRangeChanged(Range<double> newRange)
-    {
-        _xyRange = newRange;
-        ApplyAxisRanges();
-    }
-
-    private void OnNotchRangeChanged(Range<double> newRange)
-    {
-        _notchRange = newRange;
-        ApplyAxisRanges();
+        _chartJsOptions = new { scales = new { y = new { suggestedMin = -0.1, suggestedMax = 0.1 } } };
     }
 
     private void OnXIndexRangeChanged(Range<int> newRange)
     {
         _xIndexRange = newRange;
-        ApplyAxisRanges();
-        ApplyXFilter();
-    }
-
-    private void ApplyAxisRanges()
-    {
-        _xyChartJsOptions = new { scales = new { y = new { min = _xyRange.Start, max = _xyRange.End } } };
-        _notchChartJsOptions = new { scales = new { y = new { min = _notchRange.Start, max = _notchRange.End } } };
-        StateHasChanged();
+        ApplyXFilterAndUpdateChart();
     }
 
     private async Task OnSiteChanged(string newSite)
@@ -228,7 +160,6 @@ else
         }
         _selectedEqpId = null;
         _availableEqpIds.Clear();
-
         if (!string.IsNullOrEmpty(_selectedSite))
         {
             var client = HttpClientFactory.CreateClient("ITM.Dashboard.Api");
@@ -255,7 +186,6 @@ else
     private async Task OnSearchClicked()
     {
         if (string.IsNullOrEmpty(_selectedEqpId) || _startDate == null || _endDate == null) return;
-
         _isLoading = true;
         _isSearched = true;
         ClearResults();
@@ -270,8 +200,8 @@ else
             if (data != null && data.Any())
             {
                 _rawData = data;
-                _xIndexRange = new Range<int>(0, _rawData.Count - 1);
-                PrepareChartData();
+                _xIndexRange = new Range<int>(0, _rawData.Count > 0 ? _rawData.Count - 1 : 1);
+                PrepareAndFilterChartData();
             }
         }
         catch (Exception ex)
@@ -296,61 +226,81 @@ else
         _availableEqpIds.Clear();
         _isSearched = false;
         ClearResults();
-
-        _xyRange = new Range<double>(0, 1);
-        _notchRange = new Range<double>(0, 1);
         _xIndexRange = new Range<int>(0, 1);
-        ApplyAxisRanges();
-
         StateHasChanged();
     }
 
     private void ClearResults()
     {
         _rawData.Clear();
-        _xyDeviationSeries.Clear();
-        _notchSeries.Clear();
+        _allSeries.Clear();
+        _visibleSeries.Clear();
         _chartXAxisLabels = Array.Empty<string>();
     }
 
-    private void PrepareChartData()
+    private void PrepareAndFilterChartData()
     {
-        ApplyXFilter();
+        if (!_rawData.Any()) return;
 
-        var xmmData = _rawData.Select(d => d.Xmm);
-        var ymmData = _rawData.Select(d => d.Ymm);
-        _overallXyMin = Math.Min(xmmData.Min(), ymmData.Min());
-        _overallXyMax = Math.Max(xmmData.Max(), ymmData.Max());
-        _xyRange = new Range<double>(_overallXyMin, _overallXyMax);
+        _allSeries = new List<ChartSeries>
+        {
+            new ChartSeries { Name = "Xmm", Data = _rawData.Select(d => d.Xmm).ToArray() },
+            new ChartSeries { Name = "Ymm", Data = _rawData.Select(d => d.Ymm).ToArray() },
+            new ChartSeries { Name = "Notch", Data = _rawData.Select(d => d.Notch).ToArray() }
+        };
 
-        var notchData = _rawData.Select(d => d.Notch);
-        _overallNotchMin = notchData.Min();
-        _overallNotchMax = notchData.Max();
-        _notchRange = new Range<double>(_overallNotchMin, _overallNotchMax);
-
-        ApplyAxisRanges();
+        ApplyXFilterAndUpdateChart();
     }
 
-    private void ApplyXFilter()
+    private void ApplyXFilterAndUpdateChart()
     {
-        if (_rawData.Count == 0) return;
+        if (!_rawData.Any()) return;
 
         var start = Math.Max(0, _xIndexRange.Start);
         var end = Math.Min(_rawData.Count - 1, _xIndexRange.End);
 
-        var filtered = _rawData.Skip(start).Take(end - start + 1).ToList();
+        if (start > end) return;
 
-        _xyDeviationSeries = new List<ChartSeries>
+        var filteredRawData = _rawData.Skip(start).Take(end - start + 1).ToList();
+        _chartXAxisLabels = filteredRawData.Select(d => d.Timestamp.ToString("MM-dd HH:mm")).ToArray();
+        
+        UpdateVisibleChartSeries();
+    }
+
+    private void UpdateVisibleChartSeries()
+    {
+        if (!_allSeries.Any() || !_rawData.Any()) return;
+        
+        var start = Math.Max(0, _xIndexRange.Start);
+        var end = Math.Min(_rawData.Count - 1, _xIndexRange.End);
+
+        if (start > end) 
         {
-            new ChartSeries { Name = "Xmm", Data = filtered.Select(d => d.Xmm).ToArray() },
-            new ChartSeries { Name = "Ymm", Data = filtered.Select(d => d.Ymm).ToArray() }
+            _visibleSeries = new List<ChartSeries>();
+            StateHasChanged();
+            return;
         };
 
-        _notchSeries = new List<ChartSeries>
+        var tempSeries = new List<ChartSeries>();
+        if (_showXmm)
         {
-            new ChartSeries { Name = "Notch", Data = filtered.Select(d => d.Notch).ToArray() }
-        };
-
-        _chartXAxisLabels = filtered.Select(d => d.Timestamp.ToString("MM-dd HH:mm")).ToArray();
+            var xmmData = _allSeries.FirstOrDefault(s => s.Name == "Xmm")?.Data;
+            if (xmmData != null)
+                tempSeries.Add(new ChartSeries { Name = "Xmm", Data = xmmData.Skip(start).Take(end - start + 1).ToArray() });
+        }
+        if (_showYmm)
+        {
+            var ymmData = _allSeries.FirstOrDefault(s => s.Name == "Ymm")?.Data;
+            if (ymmData != null)
+                tempSeries.Add(new ChartSeries { Name = "Ymm", Data = ymmData.Skip(start).Take(end - start + 1).ToArray() });
+        }
+        if (_showNotch)
+        {
+            var notchData = _allSeries.FirstOrDefault(s => s.Name == "Notch")?.Data;
+            if (notchData != null)
+                tempSeries.Add(new ChartSeries { Name = "Notch", Data = notchData.Skip(start).Take(end - start + 1).ToArray() });
+        }
+        _visibleSeries = tempSeries;
+        StateHasChanged();
     }
 }
