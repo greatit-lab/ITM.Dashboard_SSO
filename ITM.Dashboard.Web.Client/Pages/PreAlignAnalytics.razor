@@ -236,25 +236,10 @@ else
             {
                 _sdwts = await client.GetFromJsonAsync<List<string>>($"api/Filters/sdwts/{_selectedSite}") ?? new();
             }
-            
+
             var url = string.IsNullOrEmpty(_selectedSdwt)
                 ? $"api/Filters/eqpidsbysite/{_selectedSite}"
                 : $"api/Filters/eqpids/{_selectedSdwt}";
-            _availableEqpIds = await client.GetFromJsonAsync<List<string>>(url) ?? new();
-        }
-        StateHasChanged();
-    }
-
-    private async Task ResetDependentFilters(string level)
-    {
-        if (level == "site") { _selectedSdwt = null; _sdwts.Clear(); }
-        _selectedEqpId = null;
-        _availableEqpIds.Clear();
-        if (!string.IsNullOrEmpty(_selectedSite))
-        {
-            var client = HttpClientFactory.CreateClient("ITM.Dashboard.Api");
-            if (level == "site") { _sdwts = await client.GetFromJsonAsync<List<string>>($"api/Filters/sdwts/{_selectedSite}") ?? new(); }
-            var url = string.IsNullOrEmpty(_selectedSdwt) ? $"api/Filters/eqpidsbysite/{_selectedSite}" : $"api/Filters/eqpids/{_selectedSdwt}";
             _availableEqpIds = await client.GetFromJsonAsync<List<string>>(url) ?? new();
         }
         StateHasChanged();
@@ -285,8 +270,8 @@ else
             if (data != null && data.Any())
             {
                 _rawData = data;
-                _xIndexRange = new Range<int>(0, _rawData.Count -1);
-                PrepareChartData(data);
+                _xIndexRange = new Range<int>(0, _rawData.Count - 1);
+                PrepareChartData();
             }
         }
         catch (Exception ex)
@@ -311,7 +296,7 @@ else
         _availableEqpIds.Clear();
         _isSearched = false;
         ClearResults();
-        
+
         _xyRange = new Range<double>(0, 1);
         _notchRange = new Range<double>(0, 1);
         _xIndexRange = new Range<int>(0, 1);
