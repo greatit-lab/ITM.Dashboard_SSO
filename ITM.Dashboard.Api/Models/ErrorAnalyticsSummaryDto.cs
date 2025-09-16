@@ -9,6 +9,7 @@ namespace ITM.Dashboard.Api.Models
         public int ErrorEqpCount { get; set; }
         public string TopErrorId { get; set; }
         public int TopErrorCount { get; set; }
+        public string TopErrorLabel { get; set; }
         public List<ChartDataItem> ErrorCountByEqp { get; set; } = new();
     }
 
