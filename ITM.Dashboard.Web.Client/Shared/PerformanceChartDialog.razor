@@ -12,12 +12,9 @@
 
 <MudDialog>
     <TitleContent>
-        @* ▼▼▼ [수정] 제목 영역을 div로 감싸고, 값 표시 영역을 추가합니다. ▼▼▼ *@
         <div class="d-flex align-center">
             <MudText Typo="Typo.h6">@EqpId 성능 현황 (최근 24시간, 5분 평균)</MudText>
             <MudSpacer />
-
-            @* 마우스가 차트 위에 있을 때만 값을 표시합니다. *@
             @if (_selectedIndex > -1 && _chartData.Count > _selectedIndex)
             {
                 <MudText Class="mr-4">
@@ -27,6 +24,7 @@
             }
         </div>
     </TitleContent>
+
     <DialogContent>
         @if (_isChartLoading)
         {
@@ -36,8 +34,13 @@
         }
         else if (_chartData != null && _chartData.Any())
         {
-            @* ▼▼▼ [수정] @bind-SelectedIndex를 추가합니다. ▼▼▼ *@
-            <MudChart @bind-SelectedIndex="_selectedIndex" ChartType="ChartType.Line" ChartSeries="_chartSeries" XAxisLabels="_chartXAxisLabels" Width="100%" Height="400px" ChartOptions="@_chartOptions" />
+            <MudChart 
+                @bind-SelectedIndex="_selectedIndex" 
+                ChartType="ChartType.Line" 
+                ChartSeries="_chartSeries" 
+                XAxisLabels="_chartXAxisLabels" 
+                Width="100%" Height="400px" 
+                Options="@_chartJsOptions" />
         }
         else
         {
@@ -46,6 +49,7 @@
             </div>
         }
     </DialogContent>
+
     <DialogActions>
         <MudButton OnClick="Cancel">닫기</MudButton>
     </DialogActions>
@@ -55,21 +59,30 @@
     [CascadingParameter] IMudDialogInstance MudDialog { get; set; }
     [Parameter] public string EqpId { get; set; }
 
-    // ▼▼▼ [추가] 선택된 데이터 포인트의 인덱스를 저장할 변수 ▼▼▼
     private int _selectedIndex = -1;
-
     private bool _isChartLoading = true;
     private List<PerformanceDataPointDto> _chartData = new();
     private List<ChartSeries> _chartSeries = new();
     private string[] _chartXAxisLabels = Array.Empty<string>();
-    private ChartOptions _chartOptions = new();
+    private object _chartJsOptions; // <-- 여기에 최종 Chart.js 옵션을 담기
 
     protected override async Task OnInitializedAsync()
     {
-        // ▼▼▼ [수정] ChartOptions를 초기화하여 이전의 잘못된 설정을 모두 제거합니다. ▼▼▼
-        _chartOptions = new ChartOptions
+        _chartJsOptions = new
         {
-            YAxisTicks = 0
+            scales = new
+            {
+                x = new
+                {
+                    ticks = new
+                    {
+                        autoSkip = true,
+                        maxTicksLimit = 12,
+                        maxRotation = 0,
+                        minRotation = 0
+                    }
+                }
+            }
         };
 
         var client = HttpClientFactory.CreateClient("ITM.Dashboard.Api");
@@ -98,7 +111,8 @@
         };
 
         _chartXAxisLabels = _chartData.Select(d =>
-            d.Timestamp.Minute % 30 == 0 ? d.Timestamp.ToString("HH:mm") : ""
+            // (d.Timestamp.Minute == 0 && d.Timestamp.Hour % 2 == 0) ? d.Timestamp.ToString("HH:mm") : ""    // x축 라벨 2hr 간격
+            d.Timestamp.Minute == 0 ? d.Timestamp.ToString("HH:mm") : ""
         ).ToArray();
     }
 
