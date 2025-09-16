@@ -50,8 +50,15 @@
         background-color: #f5f5f5;
         cursor: pointer;
     }
-    .selected-point-row {
-        background-color: #E3F2FD !important;
+    /* ▼▼▼ [수정] 테마별로 선택 행의 스타일을 명확하게 정의합니다. ▼▼▼ */
+    .selected-data-grid-row, .selected-point-row {
+        /* 라이트 모드 기본 선택 색상 */
+        background-color: rgba(0, 129, 222, 0.15) !important;
+    }
+    .mud-theme-dark .selected-data-grid-row,
+    .mud-theme-dark .selected-point-row {
+        /* 다크 모드에서 사용할 더 선명한 선택 색상 */
+        background-color: rgba(0, 129, 222, 0.3) !important;
     }
     .image-container {
         position: relative; /* 자식 요소를 위한 위치 기준 */
@@ -93,7 +100,10 @@
 
 <PageTitle>Wafer Flat Data</PageTitle>
 
-<MudText Typo="Typo.h4" GutterBottom="true">Wafer Flat Data</MudText>
+<MudStack Row="true" AlignItems="AlignItems.Center" Class="mb-2">
+    <MudIcon Icon="@Icons.Material.Rounded.Analytics" Size="Size.Large" />
+    <MudText Typo="Typo.h4">Wafer Flat Data</MudText>
+</MudStack>
 
 <MudPaper Class="pa-4 mb-4">
     <MudGrid Spacing="2" AlignItems="AlignItems.Center">
@@ -211,11 +221,11 @@
     <MudGrid>
         @* --- 1. Data Results & Statistics 테이블 영역 --- *@
         <MudItem xs="12" md="8">
-            <MudText Typo="Typo.h6" GutterBottom="true" Class="mt-4">Data Results</MudText>
+            <MudText Typo="Typo.h6" GutterBottom="true" Class="mt-4">▸ Data Results</MudText>
 
             <MudDataGrid @ref="_dataGrid" T="WaferFlatDataDto" ServerData="LoadData" Striped="true" Hover="true" Dense="true" Class="compact-grid enforce-widths"
                          SelectedItemChanged="OnSelectedItemChanged"
-                         RowStyleFunc="RowStyleFunc"
+                         RowClassFunc="RowClassFunc"
                          RowsPerPage="8">
                 <Columns>
                     <PropertyColumn Property="x => x.ServTs" Title="Date Time" Format="yy-MM-dd HH:mm:ss" />
@@ -304,7 +314,7 @@
             @if (_selectedRowItem != null)
             {
                 <div class="image-container">
-                    <MudText Typo="Typo.h6" GutterBottom="true" Class="mt-4">PDF Map Image</MudText>
+                    <MudText Typo="Typo.h6" GutterBottom="true" Class="mt-4">▸ Wafer Die/Cell Images</MudText>
                     <MudPaper Class="pa-4 d-flex justify-center align-center overflow-hidden" Style="width: 95%; aspect-ratio: 1 / 1; border-radius: 50%; margin: auto; position: relative;">
                         @if (_isPdfImageLoading)
                         {
@@ -326,7 +336,7 @@
                         else
                         {
                             @* PDF가 있지만, 아직 포인트 데이터 행을 클릭하지 않은 경우 *@
-                            <MudText>포인트 데이터를 선택하여 Map 이미지를 확인하세요.</MudText>
+                            <MudText>Wafer Point Data에서 Point를 선택하세요.</MudText>
                         }
                     </MudPaper>
         
@@ -347,7 +357,7 @@
     {
         <MudGrid>
             <MudItem xs="12">
-                <MudText Typo="Typo.h6" GutterBottom="true" Class="mt-4">포인트 데이터 (Point Data)</MudText>
+                <MudText Typo="Typo.h6" GutterBottom="true" Class="mt-4">▸ Wafer Point Data</MudText>
 
                 @if (_isPointDataLoading)
                 {
@@ -433,11 +443,11 @@ else
 
     protected override async Task OnInitializedAsync() => await LoadSites();
 
-    private Func<WaferFlatDataDto, int, string> RowStyleFunc => (item, index) =>
+    private Func<WaferFlatDataDto, int, string> RowClassFunc => (item, index) =>
     {
         if (_selectedRowItem != null && _selectedRowItem.Equals(item))
         {
-            return "background-color: #E3F2FD; color: var(--mud-palette-text-primary);";
+            return "selected-data-grid-row";
         }
         return string.Empty;
     };
