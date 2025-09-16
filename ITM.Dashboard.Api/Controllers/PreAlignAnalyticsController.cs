@@ -8,15 +8,6 @@ using System.Threading.Tasks;
 
 namespace ITM.Dashboard.Api.Controllers
 {
-    // API 응답을 위한 DTO 정의
-    public class PreAlignDataDto
-    {
-        public DateTime Timestamp { get; set; }
-        public double Xmm { get; set; }
-        public double Ymm { get; set; }
-        public double Notch { get; set; }
-    }
-
     [Route("api/[controller]")]
     [ApiController]
     public class PreAlignAnalyticsController : ControllerBase
@@ -25,12 +16,17 @@ namespace ITM.Dashboard.Api.Controllers
 
         [HttpGet("data")]
         public async Task<ActionResult<IEnumerable<PreAlignDataDto>>> GetPreAlignData(
-            [FromQuery] string eqpid, [FromQuery] DateTime startDate, [FromQuery] DateTime endDate)
+            [FromQuery] string eqpid, [FromQuery] string startDate, [FromQuery] string endDate)
         {
             var results = new List<PreAlignDataDto>();
             if (string.IsNullOrEmpty(eqpid))
             {
                 return Ok(results);
+            }
+
+            if (!DateTime.TryParse(startDate, out var start) || !DateTime.TryParse(endDate, out var end))
+            {
+                return BadRequest("Invalid date format. Please use 'yyyy-MM-dd'.");
             }
 
             await using var conn = new NpgsqlConnection(GetConnectionString());
@@ -47,8 +43,8 @@ namespace ITM.Dashboard.Api.Controllers
 
             await using var cmd = new NpgsqlCommand(sql, conn);
             cmd.Parameters.AddWithValue("eqpid", eqpid);
-            cmd.Parameters.AddWithValue("startDate", startDate.ToUniversalTime());
-            cmd.Parameters.AddWithValue("endDate", endDate.ToUniversalTime());
+            cmd.Parameters.AddWithValue("startDate", start.Date);
+            cmd.Parameters.AddWithValue("endDate", end.Date.AddDays(1));
 
             await using var reader = await cmd.ExecuteReaderAsync();
             while (await reader.ReadAsync())
