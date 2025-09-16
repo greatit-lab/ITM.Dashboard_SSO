@@ -69,15 +69,16 @@ namespace ITM.Dashboard.Api.Controllers
             eqpCountCmd.Connection = conn;
             summary.ErrorEqpCount = Convert.ToInt32(await eqpCountCmd.ExecuteScalarAsync());
 
-            var (topErrorSql, topErrorCmd) = BuildFilteredQuery("SELECT e.error_id, COUNT(*) as count", startDate, endDate, site, sdwt, eqpids);
-            topErrorCmd.CommandText = topErrorSql + " GROUP BY e.error_id ORDER BY count DESC LIMIT 1";
+            var (topErrorSql, topErrorCmd) = BuildFilteredQuery("SELECT e.error_id, e.error_label, COUNT(*) as count", startDate, endDate, site, sdwt, eqpids);
+            topErrorCmd.CommandText = topErrorSql + " GROUP BY e.error_id, e.error_label ORDER BY count DESC LIMIT 1"; // GROUP BY에 error_label 추가
             topErrorCmd.Connection = conn;
             await using (var reader = await topErrorCmd.ExecuteReaderAsync())
             {
                 if (await reader.ReadAsync())
                 {
                     summary.TopErrorId = reader.IsDBNull(0) ? "N/A" : reader.GetString(0);
-                    summary.TopErrorCount = reader.IsDBNull(1) ? 0 : Convert.ToInt32(reader.GetInt64(1));
+                    summary.TopErrorLabel = reader.IsDBNull(1) ? string.Empty : reader.GetString(1); // [추가] TopErrorLabel 값 할당
+                    summary.TopErrorCount = reader.IsDBNull(2) ? 0 : Convert.ToInt32(reader.GetInt64(2)); // 인덱스 1 -> 2로 변경
                 }
             }
 
@@ -138,7 +139,7 @@ namespace ITM.Dashboard.Api.Controllers
             countCmd.Connection = conn;
             totalItems = Convert.ToInt64(await countCmd.ExecuteScalarAsync());
 
-            var (sql, cmd) = BuildFilteredQuery("SELECT e.serv_ts, e.eqpid, e.error_id, e.error_label, e.error_desc", startDate, endDate, site, sdwt, eqpids);
+            var (sql, cmd) = BuildFilteredQuery("SELECT e.serv_ts, e.eqpid, e.error_id, e.error_label, e.error_desc, e.extra_message_1, e.extra_message_2", startDate, endDate, site, sdwt, eqpids);
             cmd.CommandText = sql + " ORDER BY e.serv_ts DESC OFFSET @offset LIMIT @pageSize";
             cmd.Parameters.AddWithValue("offset", page * pageSize);
             cmd.Parameters.AddWithValue("pageSize", pageSize);
@@ -153,7 +154,10 @@ namespace ITM.Dashboard.Api.Controllers
                     EqpId = reader.GetString(1),
                     ErrorId = reader.GetString(2),
                     ErrorLabel = reader.GetString(3),
-                    ErrorDesc = reader.GetString(4)
+                    ErrorDesc = reader.GetString(4),
+                    // ▼▼▼ [추가] 조회된 추가 메시지 값을 DTO에 할당합니다. ▼▼▼
+                    ExtraMessage1 = reader.IsDBNull(5) ? string.Empty : reader.GetString(5),
+                    ExtraMessage2 = reader.IsDBNull(6) ? string.Empty : reader.GetString(6)
                 });
             }
             return Ok(new PagedResult<ErrorLogDto> { Items = results, TotalItems = totalItems });
