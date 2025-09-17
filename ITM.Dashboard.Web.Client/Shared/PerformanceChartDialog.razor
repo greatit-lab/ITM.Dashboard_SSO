@@ -1,30 +1,15 @@
 @* // ITM.Dashboard.Web.Client/Shared/PerformanceChartDialog.razor *@
 @using ITM.Dashboard.Web.Client.Models
+@using ITM.Dashboard.Web.Client.Shared
 @using MudBlazor
 @inject IHttpClientFactory HttpClientFactory
-
-<style>
-    .mud-charts-xaxis-text {
-        transform: rotate(-45deg);
-        text-anchor: end;
-    }
-</style>
 
 <MudDialog>
     <TitleContent>
         <div class="d-flex align-center">
             <MudText Typo="Typo.h6">@EqpId 성능 현황 (최근 24시간, 5분 평균)</MudText>
-            <MudSpacer />
-            @if (_selectedIndex > -1 && _chartData.Count > _selectedIndex)
-            {
-                <MudText Class="mr-4">
-                    <span class="font-weight-bold">CPU:</span> @(_chartData[_selectedIndex].CpuUsage.ToString("F2"))%
-                    <span class="font-weight-bold ml-2">Memory:</span> @(_chartData[_selectedIndex].MemoryUsage.ToString("F2"))%
-                </MudText>
-            }
         </div>
     </TitleContent>
-
     <DialogContent>
         @if (_isChartLoading)
         {
@@ -34,12 +19,7 @@
         }
         else if (_chartData != null && _chartData.Any())
         {
-            <MudChart @bind-SelectedIndex="_selectedIndex"
-                    ChartType="ChartType.Line"
-                    ChartSeries="_chartSeries"
-                    XAxisLabels="_chartXAxisLabels"
-                    Width="100%" Height="400px"
-                    Options="@_chartJsOptions" />
+            <AmChart ChartData="_chartData" ChartConfig="_chartConfig" Height="400px" />
         }
         else
         {
@@ -48,7 +28,6 @@
             </div>
         }
     </DialogContent>
-
     <DialogActions>
         <MudButton OnClick="Cancel">닫기</MudButton>
     </DialogActions>
@@ -58,37 +37,30 @@
     [CascadingParameter] IMudDialogInstance MudDialog { get; set; }
     [Parameter] public string EqpId { get; set; }
 
-    private int _selectedIndex = -1;
     private bool _isChartLoading = true;
     private List<PerformanceDataPointDto> _chartData = new();
-    private List<ChartSeries> _chartSeries = new();
-    private string[] _chartXAxisLabels = Array.Empty<string>();
-    private object _chartJsOptions; // <-- 여기에 최종 Chart.js 옵션을 담기
+    private object _chartConfig;
 
     protected override async Task OnInitializedAsync()
     {
-        _chartJsOptions = new
+        // amCharts 설정을 정의합니다.
+        _chartConfig = new
         {
-            scales = new
+            xField = "timestamp",
+            xTimeUnit = "minute",
+            xAxisDateFormat = "HH:mm", // X축에 시간:분 형식으로 표시
+            series = new[]
             {
-                x = new
-                {
-                    ticks = new
-                    {
-                        autoSkip = true,
-                        maxTicksLimit = 12,
-                        maxRotation = 0,
-                        minRotation = 0
-                    }
-                }
+                // JavaScript 파일에서 seriesType: "line"을 보고 선 그래프를 그립니다.
+                new { name = "CPU", valueField = "cpuUsage", seriesType = "line" },
+                new { name = "Memory", valueField = "memoryUsage", seriesType = "line" }
             }
         };
-
+        
         var client = HttpClientFactory.CreateClient("ITM.Dashboard.Api");
         try
         {
             _chartData = await client.GetFromJsonAsync<List<PerformanceDataPointDto>>($"api/dashboard/performancehistory/{EqpId}") ?? new();
-            PrepareChartData();
         }
         catch (Exception ex)
         {
@@ -99,20 +71,6 @@
         {
             _isChartLoading = false;
         }
-    }
-
-    private void PrepareChartData()
-    {
-        _chartSeries = new List<ChartSeries>
-        {
-            new ChartSeries { Name = "CPU", Data = _chartData.Select(d => Math.Round(d.CpuUsage, 2)).ToArray() },
-            new ChartSeries { Name = "Memory", Data = _chartData.Select(d => Math.Round(d.MemoryUsage, 2)).ToArray() }
-        };
-
-        _chartXAxisLabels = _chartData.Select(d =>
-            // (d.Timestamp.Minute == 0 && d.Timestamp.Hour % 2 == 0) ? d.Timestamp.ToString("HH:mm") : ""    // x축 라벨 2hr 간격
-            d.Timestamp.Minute == 0 ? d.Timestamp.ToString("HH:mm") : ""
-        ).ToArray();
     }
 
     void Cancel() => MudDialog.Cancel();
