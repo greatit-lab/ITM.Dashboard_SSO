@@ -206,8 +206,12 @@ else
 
     private void ShowChartDialog(AgentStatusDto agent)
     {
-        var parameters = new DialogParameters { ["EqpId"] = agent.EqpId };
-        var options = new DialogOptions { MaxWidth = MaxWidth.Medium };
+        var parameters = new DialogParameters<PerformanceChartDialog>
+        {
+            [nameof(PerformanceChartDialog.EqpId)] = agent.EqpId
+        };
+        // ▼▼▼ [수정] 모달 창 크기를 일관된 중간 사이즈로 재설정합니다. ▼▼▼
+        var options = new DialogOptions { MaxWidth = MaxWidth.Medium, FullWidth = true };
         DialogService.Show<PerformanceChartDialog>("", parameters, options);
     }
 
