@@ -11,22 +11,24 @@
         </div>
     </TitleContent>
     <DialogContent>
-        @if (_isChartLoading)
-        {
-            <div class="d-flex justify-center align-center" style="height: 400px;">
-                <MudProgressCircular Color="Color.Primary" Indeterminate="true" />
-            </div>
-        }
-        else if (_chartData != null && _chartData.Any())
-        {
-            <AmChart ChartData="_chartData" ChartConfig="_chartConfig" Height="400px" />
-        }
-        else
-        {
-            <div class="d-flex justify-center align-center" style="height: 400px;">
-                <MudText>선택된 장비의 최근 24시간 성능 데이터가 없습니다.</MudText>
-            </div>
-        }
+        <div class="chart-dialog-container">
+            @if (_isChartLoading)
+            {
+                <div class="d-flex justify-center align-center" style="height: 100%;">
+                    <MudProgressCircular Color="Color.Primary" Indeterminate="true" />
+                </div>
+            }
+            else if (_chartData != null && _chartData.Any())
+            {
+                <AmChart ChartData="_chartData" ChartConfig="_chartConfig" Height="100%" />
+            }
+            else
+            {
+                <div class="d-flex justify-center align-center" style="height: 100%;">
+                    <MudText>선택된 장비의 최근 24시간 성능 데이터가 없습니다.</MudText>
+                </div>
+            }
+        </div>
     </DialogContent>
     <DialogActions>
         <MudButton OnClick="Cancel">닫기</MudButton>
@@ -41,36 +43,54 @@
     private List<PerformanceDataPointDto> _chartData = new();
     private object _chartConfig;
 
-    protected override async Task OnInitializedAsync()
+    // ▼▼▼ [추가] 첫 렌더링인지 확인하기 위한 플래그 ▼▼▼
+    private bool _isFirstRender = true;
+
+    protected override void OnInitialized()
     {
-        // amCharts 설정을 정의합니다.
+        // ▼▼▼ [수정] X축 포맷을 강제하는 옵션을 추가합니다. ▼▼▼
         _chartConfig = new
         {
             xField = "timestamp",
             xTimeUnit = "minute",
             xAxisDateFormat = "yy-MM-dd HH:mm",
+            paddingBottom = 50,
+            legendPosition = "top-right",
+            forceXAxisDateFormat = true, // 이 옵션이 핵심입니다.
             series = new[]
             {
-                // ▼▼▼ [수정] CPU 시리즈에 파란색 계열 색상을 지정합니다. ▼▼▼
                 new { name = "CPU", valueField = "cpuUsage", seriesType = "line", color = "#33b2ff" },
-                // ▼▼▼ [수정] Memory 시리즈에 녹색 계열 색상을 지정합니다. ▼▼▼
                 new { name = "Memory", valueField = "memoryUsage", seriesType = "line", color = "#39e6a3" }
             }
         };
+    }
 
-        var client = HttpClientFactory.CreateClient("ITM.Dashboard.Api");
-        try
+    // ▼▼▼ [수정] OnInitializedAsync 대신 OnAfterRenderAsync를 사용하여 데이터 로딩 시점 변경 ▼▼▼
+    protected override async Task OnAfterRenderAsync(bool firstRender)
+    {
+        // 이 메서드는 컴포넌트가 화면에 렌더링된 '후에' 호출됩니다.
+        // firstRender 플래그를 사용하여 데이터 로딩이 한 번만 실행되도록 보장합니다.
+        if (firstRender)
         {
-            _chartData = await client.GetFromJsonAsync<List<PerformanceDataPointDto>>($"api/dashboard/performancehistory/{EqpId}") ?? new();
-        }
-        catch (Exception ex)
-        {
-            Console.WriteLine($"차트 데이터 로드 실패: {ex.Message}");
-            _chartData.Clear();
-        }
-        finally
-        {
-            _isChartLoading = false;
+            // 모달 애니메이션을 위한 아주 짧은 지연을 줍니다.
+            await Task.Delay(50);
+
+            var client = HttpClientFactory.CreateClient("ITM.Dashboard.Api");
+            try
+            {
+                _chartData = await client.GetFromJsonAsync<List<PerformanceDataPointDto>>($"api/dashboard/performancehistory/{EqpId}") ?? new();
+            }
+            catch (Exception ex)
+            {
+                Console.WriteLine($"차트 데이터 로드 실패: {ex.Message}");
+                _chartData.Clear();
+            }
+            finally
+            {
+                _isChartLoading = false;
+                // StateHasChanged를 호출하여 UI를 다시 렌더링하고 차트를 그리게 합니다.
+                StateHasChanged();
+            }
         }
     }
 
