@@ -48,7 +48,7 @@
         {
             xField = "timestamp",
             xTimeUnit = "minute",
-            xAxisDateFormat = "yy-MM-dd HH:mm", 
+            xAxisDateFormat = "yy-MM-dd HH:mm",
             series = new[]
             {
                 // ▼▼▼ [수정] CPU 시리즈에 파란색 계열 색상을 지정합니다. ▼▼▼
@@ -57,7 +57,7 @@
                 new { name = "Memory", valueField = "memoryUsage", seriesType = "line", color = "#39e6a3" }
             }
         };
-        
+
         var client = HttpClientFactory.CreateClient("ITM.Dashboard.Api");
         try
         {
