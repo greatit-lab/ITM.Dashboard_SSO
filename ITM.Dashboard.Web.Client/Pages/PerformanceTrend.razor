@@ -223,7 +223,7 @@ else
             yAxisTitle = "CPU (%)",
             series = new[]
             {
-                new { name = "CPU", valueField = "cpuUsage", seriesType = "line", color = "#33b2ff" }
+                new { name = "CPU", valueField = "cpuUsage", seriesType = "line", color = "#33b2ff", bulletSize = 2 }
             }
         };
 
@@ -235,7 +235,7 @@ else
             yAxisTitle = "Memory (%)",
             series = new[]
             {
-                new { name = "Memory", valueField = "memoryUsage", seriesType = "line", color = "#39e6a3" }
+                new { name = "Memory", valueField = "memoryUsage", seriesType = "line", color = "#39e6a3", bulletSize = 2 }
             }
         };
     }
@@ -367,14 +367,24 @@ else
 
         try
         {
+            DateTime start, end;
+
+            // ✅ 실시간 모드일 경우: 현재시간 기준 1시간 전부터 지금까지
+            if (_filterState == FilterState.RealTime && _selectedIntervalSeconds > 0)
+            {
+                end = DateTime.Now;
+                start = end.AddHours(-1);
+            }
+            else
+            {
+                start = _startDate ?? DateTime.Now.Date.AddDays(-1);
+                end = (_endDate ?? DateTime.Now.Date).AddDays(1); // 종료일 포함
+            }
+
             var client = HttpClientFactory.CreateClient("ITM.Dashboard.Api");
             var query = new System.Text.StringBuilder();
-            query.Append($"startDate={Uri.EscapeDataString(_startDate.Value.ToString("o"))}");
-
-            // ✅ EndDate 하루 더해서 조회 (00:00:00 ~ 23:59:59 포함)
-            var endDateAdjusted = _endDate.Value.AddDays(1);
-            query.Append($"&endDate={Uri.EscapeDataString(endDateAdjusted.ToString("o"))}");
-
+            query.Append($"startDate={Uri.EscapeDataString(start.ToString("o"))}");
+            query.Append($"&endDate={Uri.EscapeDataString(end.ToString("o"))}");
             query.Append($"&intervalSeconds={_selectedIntervalSeconds}");
             query.Append($"&eqpids={Uri.EscapeDataString(_selectedEqpId)}");
 
