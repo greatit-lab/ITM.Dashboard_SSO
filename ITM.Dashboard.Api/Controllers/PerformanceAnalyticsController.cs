@@ -42,7 +42,7 @@ namespace ITM.Dashboard.Api.Controllers
 
             await using var conn = new NpgsqlConnection(GetConnectionString());
             await conn.OpenAsync();
-            
+
             // ▼▼▼ [수정] 쿼리에서 intervalSeconds를 직접 사용하도록 변경 ▼▼▼
             var sql = $@"
                 SELECT
