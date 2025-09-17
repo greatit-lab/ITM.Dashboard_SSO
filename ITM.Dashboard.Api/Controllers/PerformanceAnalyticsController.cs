@@ -24,21 +24,26 @@ namespace ITM.Dashboard.Api.Controllers
         private string GetConnectionString() => new DatabaseInfo().GetConnectionString();
 
         [HttpGet("history")]
+        // ▼▼▼ [수정] intervalMinutes를 intervalSeconds로 변경하고 기본값을 300초(5분)로 설정 ▼▼▼
         public async Task<ActionResult<IEnumerable<PerformanceDataPointWithEqpIdDto>>> GetPerformanceHistory(
-            [FromQuery] DateTime startDate, [FromQuery] DateTime endDate, [FromQuery] string[] eqpids, [FromQuery] int intervalMinutes = 5)
+            [FromQuery] DateTime startDate, [FromQuery] DateTime endDate, [FromQuery] string[] eqpids, [FromQuery] int intervalSeconds = 300)
         {
             var results = new List<PerformanceDataPointWithEqpIdDto>();
             if (eqpids == null || eqpids.Length == 0)
             {
-                return Ok(results); // EQPID가 없으면 빈 목록 반환
+                return Ok(results);
+            }
+
+            // ▼▼▼ [수정] 0 이하의 값이 들어올 경우 최소 1초로 강제하여 DB 오류 방지 ▼▼▼
+            if (intervalSeconds <= 0)
+            {
+                intervalSeconds = 1;
             }
 
             await using var conn = new NpgsqlConnection(GetConnectionString());
             await conn.OpenAsync();
-
-            var intervalSeconds = intervalMinutes * 60;
-
-            // 여러 장비의 성능 데이터를 지정된 간격으로 그룹화하여 평균을 계산하는 쿼리
+            
+            // ▼▼▼ [수정] 쿼리에서 intervalSeconds를 직접 사용하도록 변경 ▼▼▼
             var sql = $@"
                 SELECT
                     eqpid,
@@ -55,8 +60,8 @@ namespace ITM.Dashboard.Api.Controllers
 
             await using var cmd = new NpgsqlCommand(sql, conn);
             cmd.Parameters.AddWithValue("eqpids", eqpids);
-            cmd.Parameters.AddWithValue("startDate", startDate.ToUniversalTime()); // UTC 기준으로 변환
-            cmd.Parameters.AddWithValue("endDate", endDate.ToUniversalTime());   // UTC 기준으로 변환
+            cmd.Parameters.AddWithValue("startDate", startDate.ToUniversalTime());
+            cmd.Parameters.AddWithValue("endDate", endDate.ToUniversalTime());
 
             await using var reader = await cmd.ExecuteReaderAsync();
             while (await reader.ReadAsync())
