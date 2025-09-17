@@ -5,7 +5,7 @@ var builder = WebApplication.CreateBuilder(args);
 builder.Services.AddCors(options =>
 {
     options.AddPolicy("AllowBlazorApp",
-        builder => builder.WithOrigins("https://localhost:7263") // Blazor 앱의 주소 (포트 번호는 다를 수 있음)
+        builder => builder.WithOrigins("https://localhost:7263", "https://127.0.0.1:7263") // Blazor 앱의 주소 (포트 번호는 다를 수 있음)
                            .AllowAnyHeader()
                            .AllowAnyMethod());
 });
