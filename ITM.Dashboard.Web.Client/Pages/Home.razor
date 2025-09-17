@@ -42,30 +42,35 @@
 else
 {
     <MudGrid Spacing="4">
-        @* --- 1. 시스템 현황 요약 카드 --- *@
+        @* --- 1. 시스템 현황 요약 카드 (필터링 기능 추가) --- *@
         <MudItem xs="12" sm="6" md="3">
-            <MudPaper Class="pa-4 d-flex flex-column justify-center align-center" Style="height:160px;">
+            <MudPaper @onclick='() => SetActiveFilter("All")'
+                      Class="@GetCardClass("All")" Style="height:160px; cursor:pointer;">
                 <MudIcon Icon="@Icons.Material.Rounded.Devices" Color="Color.Primary" Style="font-size: 48px;" />
                 <MudText Typo="Typo.h6" Class="mt-2">@_summary?.TotalEqpCount</MudText>
                 <MudText Typo="Typo.body2" Class="mud-text-secondary">총 모니터링 장비</MudText>
             </MudPaper>
         </MudItem>
         <MudItem xs="12" sm="6" md="3">
-            <MudPaper Class="pa-4 d-flex flex-column justify-center align-center" Style="height:160px;">
+            <MudPaper @onclick='() => SetActiveFilter("Online")'
+                      Class="@GetCardClass("Online")" Style="height:160px; cursor:pointer;">
                 <MudIcon Icon="@Icons.Material.Rounded.Wifi" Color="Color.Success" Style="font-size: 48px;" />
                 <MudText Typo="Typo.h6" Class="mt-2">@_summary?.OnlineAgentCount</MudText>
                 <MudText Typo="Typo.body2" Class="mud-text-secondary">온라인 에이전트</MudText>
             </MudPaper>
         </MudItem>
         <MudItem xs="12" sm="6" md="3">
-            <MudPaper Class="pa-4 d-flex flex-column justify-center align-center" Style="height:160px;">
+            <MudPaper @onclick='() => SetActiveFilter("Offline")'
+                      Class="@GetCardClass("Offline")" Style="height:160px; cursor:pointer;">
                 <MudIcon Icon="@Icons.Material.Rounded.WifiOff" Color="@((_summary?.TotalEqpCount - _summary?.OnlineAgentCount) > 0 ? Color.Error : Color.Default)" Style="font-size: 48px;" />
                 <MudText Typo="Typo.h6" Color="@((_summary?.TotalEqpCount - _summary?.OnlineAgentCount) > 0 ? Color.Error : Color.Default)" Class="mt-2">@(_summary?.TotalEqpCount - _summary?.OnlineAgentCount)</MudText>
                 <MudText Typo="Typo.body2" Class="mud-text-secondary">오프라인 에이전트</MudText>
             </MudPaper>
         </MudItem>
         <MudItem xs="12" sm="6" md="3">
-            <MudPaper Class="pa-4 d-flex flex-column justify-center align-center" Style="height:160px;">
+            @* ▼▼▼ [수정] '금일 발생 에러' 카드에 클릭 이벤트와 스타일 클래스 적용 ▼▼▼ *@
+            <MudPaper @onclick='() => SetActiveFilter("Alarm")'
+                      Class="@GetCardClass("Alarm")" Style="height:160px; cursor:pointer;">
                 <MudIcon Icon="@Icons.Material.Rounded.ErrorOutline" Color="Color.Warning" Style="font-size: 48px;" />
                 <MudText Typo="Typo.h6" Class="mt-2">@_summary?.TodayErrorCount</MudText>
                 <MudText Typo="Typo.body2" Class="mud-text-secondary">금일 발생 에러</MudText>
@@ -74,11 +79,11 @@ else
 
         @* --- 2. 에이전트 상태 모니터링 테이블 --- *@
         <MudItem xs="12">
-            @* ▼▼▼ [수정] 1. OnRowClick 이벤트를 추가하고 Hover="true"를 설정합니다. ▼▼▼ *@
-            <MudTable Items="_agentStatusList" Hover="true" Dense="true" Class="mt-4"
+            <MudTable Items="FilteredAgentStatusList" Hover="true" Dense="true" Class="mt-4"
                       OnRowClick="@((TableRowClickEventArgs<AgentStatusDto> args) => ShowChartDialog(args.Item))" Style="cursor:pointer;">
                 <HeaderContent>
-                    <MudTh>상태</MudTh>
+                    <MudTh>연결 상태</MudTh>
+                    <MudTh>장비 상태</MudTh>
                     <MudTh>EQP ID</MudTh>
                     <MudTh>Type</MudTh>
                     <MudTh>IP 주소</MudTh>
@@ -89,7 +94,7 @@ else
                     <MudTh>에이전트 버전</MudTh>
                 </HeaderContent>
                 <RowTemplate>
-                    <MudTd DataLabel="상태">
+                    <MudTd DataLabel="연결 상태">
                         @if (context.IsOnline)
                         {
                             <MudChip T="object" Icon="@Icons.Material.Filled.CheckCircle" Color="Color.Success" Size="Size.Small" Variant="Variant.Outlined">온라인</MudChip>
@@ -99,23 +104,32 @@ else
                             <MudChip T="object" Icon="@Icons.Material.Filled.Error" Color="Color.Error" Size="Size.Small" Variant="Variant.Outlined">오프라인</MudChip>
                         }
                     </MudTd>
-                    @* ▼▼▼ [수정] 2. EQP ID를 클릭 가능한 링크가 아닌 일반 텍스트로 변경합니다. ▼▼▼ *@
+                    <MudTd DataLabel="장비 상태">
+                        @if (context.TodayAlarmCount > 0)
+                        {
+                            <MudStack Row="true" Spacing="1" AlignItems="AlignItems.Center">
+                                <MudChip T="object" Icon="@Icons.Material.Filled.Warning" Color="Color.Warning" Size="Size.Small" Variant="Variant.Outlined">알람</MudChip>
+                                <MudText Typo="Typo.caption">(@context.TodayAlarmCount)</MudText>
+                            </MudStack>
+                        }
+                        else
+                        {
+                            <MudChip T="object" Icon="@Icons.Material.Filled.Shield" Color="Color.Info" Size="Size.Small" Variant="Variant.Outlined">정상</MudChip>
+                        }
+                    </MudTd>
                     <MudTd DataLabel="EQP ID">@context.EqpId</MudTd>
                     <MudTd DataLabel="Type">@context.Type</MudTd>
                     <MudTd DataLabel="IP 주소">@context.IpAddress</MudTd>
                     <MudTd DataLabel="PC 이름">@context.PcName</MudTd>
                     <MudTd DataLabel="운영체제(OS)">@FormatOperatingSystem(context.Os, context.SystemType)</MudTd>
-                    @* ▼▼▼ [수정] 3. 프로그레스 바가 잘 보이도록 Tooltip과 스타일을 추가합니다. ▼▼▼ *@
                     <MudTd DataLabel="CPU/Memory">
                         <MudPaper Elevation="0" Class="d-flex align-center rounded pa-1 my-1"
                                   Style="background: var(--mud-palette-background-grey); position: relative;">
                             <MudProgressLinear Color="Color.Primary" Value="@context.CpuUsage" Class="rounded" Style="height:10px;" />
-                            <MudTooltip Text="@($"CPU: {context.CpuUsage:F1}%")" Placement="Placement.Start" Inline="true" />
                         </MudPaper>
                         <MudPaper Elevation="0" Class="d-flex align-center rounded pa-1 my-1"
                                   Style="background: var(--mud-palette-background-grey); position: relative;">
                             <MudProgressLinear Color="Color.Info" Value="@context.MemoryUsage" Class="rounded" Style="height:10px;" />
-                            <MudTooltip Text="@($"Memory: {context.MemoryUsage:F1}%")" Placement="Placement.Start" Inline="true" />
                         </MudPaper>
                     </MudTd>
                     <MudTd DataLabel="마지막 접속">@context.LastContact?.ToString("yy-MM-dd HH:mm:ss")</MudTd>
@@ -140,6 +154,29 @@ else
     private List<string> _sdwts = new();
     private string? _selectedSite;
     private string? _selectedSdwt;
+
+    // 필터링 로직을 위한 코드
+    private string _activeFilter = "All"; // 기본값은 '전체'
+
+    private IEnumerable<AgentStatusDto> FilteredAgentStatusList => _activeFilter switch
+    {
+        "Online" => _agentStatusList.Where(a => a.IsOnline),
+        "Offline" => _agentStatusList.Where(a => !a.IsOnline),
+        // ▼▼▼ [수정] 'Alarm' 필터 케이스 추가 ▼▼▼
+        "Alarm" => _agentStatusList.Where(a => a.TodayAlarmCount > 0),
+        _ => _agentStatusList, // "All" 또는 기본값
+    };
+
+    private void SetActiveFilter(string filterType)
+    {
+        _activeFilter = filterType;
+    }
+
+    private string GetCardClass(string filterType)
+    {
+        var baseClass = "pa-4 d-flex flex-column justify-center align-center";
+        return _activeFilter == filterType ? $"{baseClass} active-card" : baseClass;
+    }
 
     protected override async Task OnInitializedAsync()
     {
@@ -210,7 +247,6 @@ else
         {
             [nameof(PerformanceChartDialog.EqpId)] = agent.EqpId
         };
-        // ▼▼▼ [수정] 모달 창 크기를 일관된 중간 사이즈로 재설정합니다. ▼▼▼
         var options = new DialogOptions { MaxWidth = MaxWidth.Medium, FullWidth = true };
         DialogService.Show<PerformanceChartDialog>("", parameters, options);
     }
