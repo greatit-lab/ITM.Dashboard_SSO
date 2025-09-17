@@ -148,24 +148,25 @@ window.AmChartsInterop = {
         let series = chart.series.push(am5percent.PieSeries.new(root, {
             valueField: config.valueField,
             categoryField: config.categoryField,
-            alignLabels: true // 라벨 정렬을 활성화하여 겹침을 방지
+            alignLabels: false
         }));
         
+        // ▼▼▼ [수정] 차트 조각(slice)에 마우스를 올렸을 때 나오는 툴팁의 텍스트를 설정합니다. ▼▼▼
         series.slices.template.set("tooltipText", "{category}: {value}건");
-    
+
         // ▼▼▼ [수정] 차트에 항상 표시되는 라벨의 텍스트를 설정합니다. ▼▼▼
         series.labels.template.setAll({
-            // EQPID와 발생 건수를 모두 표시하도록 텍스트 형식을 변경합니다.
-            text: "{category}: {value}건", 
+            text: "{category}", // 라벨에는 EQPID(category)만 표시하여 간결하게 만듭니다.
             fill: root.interfaceColors.get("text"),
             textType: "circular", 
             centerX: 0, 
             centerY: 0, 
             fontSize: 10,
         });
-    
-        series.ticks.template.set("forceHidden", false); // 라벨과 조각을 잇는 선을 다시 표시
-    
+
+        // 라벨과 차트 조각을 연결하는 선(tick)은 숨깁니다.
+        series.ticks.template.set("forceHidden", true);
+
         series.data.setAll(data);
         series.appear(1000, 100);
     },
