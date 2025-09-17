@@ -150,17 +150,17 @@ window.AmChartsInterop = {
             categoryField: config.categoryField,
             alignLabels: false
         }));
-        
+
         // ▼▼▼ [수정] 차트 조각(slice)에 마우스를 올렸을 때 나오는 툴팁의 텍스트를 설정합니다. ▼▼▼
         series.slices.template.set("tooltipText", "{category}: {value}건");
 
         // ▼▼▼ [수정] 차트에 항상 표시되는 라벨의 텍스트를 설정합니다. ▼▼▼
         series.labels.template.setAll({
-            text: "{category}", // 라벨에는 EQPID(category)만 표시하여 간결하게 만듭니다.
+            text: "{category}: {value}건", // 라벨에는 EQPID(category)만 표시하여 간결하게 만듭니다.
             fill: root.interfaceColors.get("text"),
-            textType: "circular", 
-            centerX: 0, 
-            centerY: 0, 
+            textType: "circular",
+            centerX: 0,
+            centerY: 0,
             fontSize: 10,
         });
 
