@@ -48,12 +48,13 @@
         {
             xField = "timestamp",
             xTimeUnit = "minute",
-            xAxisDateFormat = "HH:mm", // X축에 시간:분 형식으로 표시
+            xAxisDateFormat = "yy-MM-dd HH:mm", 
             series = new[]
             {
-                // JavaScript 파일에서 seriesType: "line"을 보고 선 그래프를 그립니다.
-                new { name = "CPU", valueField = "cpuUsage", seriesType = "line" },
-                new { name = "Memory", valueField = "memoryUsage", seriesType = "line" }
+                // ▼▼▼ [수정] CPU 시리즈에 파란색 계열 색상을 지정합니다. ▼▼▼
+                new { name = "CPU", valueField = "cpuUsage", seriesType = "line", color = "#33b2ff" },
+                // ▼▼▼ [수정] Memory 시리즈에 녹색 계열 색상을 지정합니다. ▼▼▼
+                new { name = "Memory", valueField = "memoryUsage", seriesType = "line", color = "#39e6a3" }
             }
         };
         
