@@ -22,10 +22,12 @@
     </MudDrawer>
     @* [수정] MainContent에 테마 클래스를 적용합니다. *@
     <MudMainContent Class="@(_isDarkMode ? "dark-theme-main-content" : "light-theme-main-content")">
+    <CascadingValue Value="_isDarkMode" Name="IsDarkMode">
         <MudContainer MaxWidth="MaxWidth.ExtraExtraLarge" Class="my-4 pt-4">
             @Body
         </MudContainer>
-    </MudMainContent>
+    </CascadingValue>
+</MudMainContent>
 </MudLayout>
 
 @code {
