@@ -1,6 +1,7 @@
 @* // ITM.Dashboard.Web.Client/Pages/ErrorAnalytics.razor *@
 @page "/error-analytics"
 @using ITM.Dashboard.Web.Client.Models
+@using ITM.Dashboard.Web.Client.Shared
 @inject IHttpClientFactory HttpClientFactory
 
 <PageTitle>Error Analytics</PageTitle>
@@ -12,7 +13,6 @@
 
 <MudPaper Class="pa-4 mb-4">
     <MudGrid Spacing="2" AlignItems="AlignItems.Center">
-        @* ▼▼▼ [수정] Site, SDWT 필터 추가 ▼▼▼ *@
         <MudItem xs="12" sm="6" md="2">
             <MudSelect T="string" Label="Site" Value="_selectedSite" ValueChanged="OnSiteChanged" Dense="true" Margin="Margin.Dense" Required="true" RequiredError="Site를 선택하세요.">
                 @foreach (var site in _sites)
@@ -30,22 +30,28 @@
             </MudSelect>
         </MudItem>
         <MudItem xs="12" sm="12" md="3">
-            <MudAutocomplete T="string" Label="EQP ID (전체)" Value="_selectedEqpId" ValueChanged="OnEqpidChanged" SearchFunc="SearchEqpids"
+            <MudAutocomplete T="string" Label="EQP ID (전체)" @bind-Value="_selectedEqpId" SearchFunc="SearchEqpids"
                              ResetValueOnEmptyText="true" CoerceText="false" CoerceValue="false" Dense="true" Margin="Margin.Dense"
                              Disabled="@(string.IsNullOrEmpty(_selectedSite))" />
         </MudItem>
         <MudItem xs="12" sm="6" md="3">
             <MudDateRangePicker @bind-DateRange="_dateRange" Label="기간 선택" Dense="true" Margin="Margin.Dense" />
         </MudItem>
-        <MudItem xs="12" sm="6" md="2">
+        @* ▼▼▼ [수정] 조회/Reset 버튼 레이아웃 변경 ▼▼▼ *@
+        <MudItem xs="6" sm="3" md="1">
             <MudButton Variant="Variant.Filled" Color="Color.Primary" OnClick="OnSearchClicked" Disabled="@(string.IsNullOrEmpty(_selectedSite))" FullWidth="true">조회</MudButton>
+        </MudItem>
+        <MudItem xs="6" sm="3" md="1">
+            <MudButton Variant="Variant.Outlined" OnClick="ResetFilters" FullWidth="true">Reset</MudButton>
         </MudItem>
     </MudGrid>
 </MudPaper>
 
-@if (_initialLoading)
+@if (_isLoading)
 {
-    <MudProgressCircular Color="Color.Primary" Indeterminate="true" />
+    <div class="d-flex justify-center mt-4">
+        <MudProgressCircular Color="Color.Primary" Indeterminate="true" />
+    </div>
 }
 else if (_isSearched)
 {
@@ -60,7 +66,6 @@ else if (_isSearched)
         <MudItem xs="12" sm="12" md="6">
             <MudPaper Class="pa-4" Style="height:100%">
                 <MudText Typo="Typo.subtitle1">최다 발생 Error</MudText>
-                @* ▼▼▼ [수정] ID와 Label을 함께 표시하도록 변경합니다. ▼▼▼ *@
                 <MudText Typo="Typo.h5">
                     @_summary?.TopErrorId
                     @if (!string.IsNullOrEmpty(_summary?.TopErrorLabel))
@@ -76,26 +81,25 @@ else if (_isSearched)
         <MudItem xs="12" md="8">
             <MudPaper Class="pa-4" Style="height:100%">
                 <MudText Typo="Typo.h6" GutterBottom="true">Error 발생 Time Trend</MudText>
-                <MudChart ChartType="ChartType.Bar" ChartSeries="_trendSeries" XAxisLabels="_trendXAxisLabels" Height="200px" Width="100%" />
+                <AmChart ChartType="XYChart" ChartData="_trendData" ChartConfig="_trendChartConfig" Height="200px" />
             </MudPaper>
         </MudItem>
         <MudItem xs="12" md="4">
             <MudPaper Class="pa-4" Style="height:100%">
                 <MudText Typo="Typo.h6" GutterBottom="true">장비별 에러 발생 현황</MudText>
-                @if (_donutChartInput.Any())
+                @if (_summary?.ErrorCountByEqp?.Any() == true)
                 {
-                    <MudChart ChartType="ChartType.Donut" InputData="@_donutChartInput" InputLabels="@_donutChartLabels" Height="200px" Width="100%" />
+                    <AmChart ChartType="PieChart" ChartData="_summary.ErrorCountByEqp" ChartConfig="_donutChartConfig" Height="200px" />
                 }
                 else
                 {
-                    <MudText>데이터 없음</MudText>
+                    <div class="d-flex justify-center align-center" style="height:200px;"><MudText>데이터 없음</MudText></div>
                 }
             </MudPaper>
         </MudItem>
 
         @* Data Grid *@
         <MudItem xs="12">
-            @* [수정] 서버사이드 페이징을 위해 MudDataGrid 사용 *@
             <MudDataGrid T="ErrorLogDto" ServerData="LoadGridData" @ref="_grid" Dense="true" Hover="true" Striped="true" RowsPerPage="10">
                 <Columns>
                     <PropertyColumn Property="x => x.TimeStamp" Title="Error Time" Format="yy-MM-dd HH:mm:ss" />
@@ -103,7 +107,6 @@ else if (_isSearched)
                     <PropertyColumn Property="x => x.ErrorId" Title="Error ID" />
                     <PropertyColumn Property="x => x.ErrorLabel" Title="Error Label" />
                     <PropertyColumn Property="x => x.ErrorDesc" Title="Error Description" />
-                    @* ▼▼▼ [추가] 새로운 컬럼 2개를 추가합니다. ▼▼▼ *@
                     <PropertyColumn Property="x => x.ExtraMessage1" Title="Extra Message 1" />
                     <PropertyColumn Property="x => x.ExtraMessage2" Title="Extra Message 2" />
                 </Columns>
@@ -120,7 +123,7 @@ else
 }
 
 @code {
-    private bool _initialLoading = true;
+    private bool _isLoading = false;
     private bool _isSearched = false;
     private MudDataGrid<ErrorLogDto> _grid;
 
@@ -133,19 +136,35 @@ else
     private string _selectedSite;
     private string _selectedSdwt;
     private string _selectedEqpId;
-
-    private ErrorAnalyticsSummaryDto _summary;
+    
+    private ErrorAnalyticsSummaryDto _summary = new();
     private List<ErrorTrendDataPointDto> _trendData = new();
-
-    private List<ChartSeries> _trendSeries = new();
-    private string[] _trendXAxisLabels = Array.Empty<string>();
-    private double[] _donutChartInput = Array.Empty<double>();
-    private string[] _donutChartLabels = Array.Empty<string>();
+    
+    private object _trendChartConfig;
+    private object _donutChartConfig;
 
     protected override async Task OnInitializedAsync()
     {
+        _trendChartConfig = new
+        {
+            xField = "date",
+            xTimeUnit = "day",
+            xAxisDateFormat = "yy-MM-dd",
+            yAxisMin = 0,
+            yAxisForceInteger = true,
+            series = new[]
+            {
+                new { name = "에러 건수", valueField = "count" }
+            }
+        };
+
+        _donutChartConfig = new
+        {
+            valueField = "value",
+            categoryField = "label"
+        };
+        
         await LoadSites();
-        _initialLoading = false;
     }
 
     private async Task LoadSites()
@@ -177,19 +196,13 @@ else
         {
             var client = HttpClientFactory.CreateClient("ITM.Dashboard.Api");
             var url = string.IsNullOrEmpty(_selectedSdwt)
-                ? $"api/Filters/eqpidsbysite/{_selectedSite}" // Site 내 전체 EQPID (API 추가 필요)
+                ? $"api/Filters/eqpidsbysite/{_selectedSite}"
                 : $"api/Filters/eqpids/{_selectedSdwt}";
 
-            // 임시로 SDWT 기준만 사용
-            if (!string.IsNullOrEmpty(_selectedSdwt))
-            {
-                _eqpIds = await client.GetFromJsonAsync<List<string>>(url) ?? new();
-            }
+            _eqpIds = await client.GetFromJsonAsync<List<string>>(url) ?? new();
         }
     }
-
-    private void OnEqpidChanged(string eqpid) => _selectedEqpId = eqpid;
-
+    
     private async Task<IEnumerable<string>> SearchEqpids(string value, CancellationToken token)
     {
         await Task.Yield();
@@ -199,13 +212,12 @@ else
 
     private async Task OnSearchClicked()
     {
-        _initialLoading = true;
+        _isLoading = true;
         _isSearched = true;
-        StateHasChanged();
+        StateHasChanged(); 
 
         var client = HttpClientFactory.CreateClient("ITM.Dashboard.Api");
         var query = BuildQueryString();
-
         try
         {
             var summaryTask = client.GetFromJsonAsync<ErrorAnalyticsSummaryDto>($"api/ErrorAnalytics/summary?{query}");
@@ -213,21 +225,45 @@ else
 
             await Task.WhenAll(summaryTask, trendTask);
 
-            _summary = await summaryTask;
-            _trendData = await trendTask;
-
-            PrepareChartData();
-            await _grid.ReloadServerData(); // 데이터 그리드 갱신
+            _summary = await summaryTask ?? new ErrorAnalyticsSummaryDto();
+            _trendData = await trendTask ?? new List<ErrorTrendDataPointDto>();
+            
+            await _grid.ReloadServerData();
         }
         catch (Exception ex)
         {
             Console.WriteLine($"Error loading analytics data: {ex.Message}");
+            _summary = new ErrorAnalyticsSummaryDto();
+            _trendData = new List<ErrorTrendDataPointDto>();
         }
         finally
         {
-            _initialLoading = false;
+            _isLoading = false;
             StateHasChanged();
         }
+    }
+    
+    // ▼▼▼ [추가] Reset 버튼 로직 ▼▼▼
+    private async Task ResetFilters()
+    {
+        _selectedSite = null;
+        _selectedSdwt = null;
+        _selectedEqpId = null;
+        _dateRange = new DateRange(DateTime.Now.Date.AddDays(-6), DateTime.Now.Date);
+
+        _sdwts.Clear();
+        _eqpIds.Clear();
+        
+        _isSearched = false;
+        _summary = new();
+        _trendData = new();
+        
+        if (_grid != null)
+        {
+            await _grid.ReloadServerData();
+        }
+        
+        StateHasChanged();
     }
 
     private async Task<GridData<ErrorLogDto>> LoadGridData(GridState<ErrorLogDto> state)
@@ -241,9 +277,7 @@ else
 
         try
         {
-            // GetFromJsonAsync를 사용하여 PagedResult<T>로 직접 변환
             var pagedResult = await client.GetFromJsonAsync<PagedResult<ErrorLogDto>>(dataUrl);
-
             if (pagedResult != null)
             {
                 return new GridData<ErrorLogDto>
@@ -272,32 +306,12 @@ else
 
         if (!string.IsNullOrEmpty(_selectedSite)) queryParams.Append($"&site={Uri.EscapeDataString(_selectedSite)}");
         if (!string.IsNullOrEmpty(_selectedSdwt)) queryParams.Append($"&sdwt={Uri.EscapeDataString(_selectedSdwt)}");
-
-        var eqpids = new List<string>();
-        if (!string.IsNullOrEmpty(_selectedEqpId)) eqpids.Add(_selectedEqpId);
-        if (eqpids.Any())
+        
+        if (!string.IsNullOrEmpty(_selectedEqpId))
         {
-            foreach (var id in eqpids)
-            {
-                queryParams.Append($"&eqpids={Uri.EscapeDataString(id)}");
-            }
+            queryParams.Append($"&eqpids={Uri.EscapeDataString(_selectedEqpId)}");
         }
 
         return queryParams.ToString();
-    }
-
-    private void PrepareChartData()
-    {
-        _trendSeries = new List<ChartSeries>
-        {
-            new ChartSeries { Name = "에러 건수", Data = _trendData.Select(d => (double)d.Count).ToArray() }
-        };
-        _trendXAxisLabels = _trendData.Select(d => d.Date.ToString("MM-dd")).ToArray();
-
-        if (_summary?.ErrorCountByEqp != null)
-        {
-            _donutChartInput = _summary.ErrorCountByEqp.Select(d => d.Value).ToArray();
-            _donutChartLabels = _summary.ErrorCountByEqp.Select(d => d.Label).ToArray();
-        }
     }
 }
