@@ -37,7 +37,7 @@ window.AmChartsInterop = {
                     case 'LineChart':
                     case 'ColumnChart':
                         const xyChart = root.container.children.push(am5xy.XYChart.new(root, {
-                            panX: true, panY: false, wheelX: "panX", wheelY: "zoomX",
+                            panX: true, panY: true, wheelX: "panX", wheelY: "zoomX",
                             layout: root.verticalLayout
                         }));
                         this.configureXYChart(root, xyChart, data, config, chartType);
@@ -61,7 +61,7 @@ window.AmChartsInterop = {
         const textColor = isDarkMode ? am5.color(0xffffff) : am5.color(0x000000);
         const gridColor = isDarkMode ? am5.color(0xffffff) : am5.color(0x000000);
 
-        let cursor = chart.set("cursor", am5xy.XYCursor.new(root, { behavior: "zoomX" }));
+        let cursor = chart.set("cursor", am5xy.XYCursor.new(root, { behavior: "zoomXY" }));
         cursor.lineY.set("visible", false);
 
         let xAxis = chart.xAxes.push(am5xy.DateAxis.new(root, {
@@ -70,13 +70,10 @@ window.AmChartsInterop = {
             inputDateFormat: "yyyy-MM-ddTHH:mm:ss"
         }));
 
-        if (config.baseInterval) xAxis.set("baseInterval", config.baseInterval);
-        if (config.gridIntervals) xAxis.set("gridIntervals", config.gridIntervals);
-
         if (config.xAxisDateFormat) {
             xAxis.get("dateFormats")[config.xTimeUnit || "day"] = config.xAxisDateFormat;
-            xAxis.get("dateFormats")["hour"] = config.xAxisDateFormat;
-            xAxis.get("dateFormats")["minute"] = config.xAxisDateFormat;
+            xAxis.get("dateFormats")["hour"] = "yy-MM-dd HH:mm";
+            xAxis.get("dateFormats")["minute"] = "yy-MM-dd HH:mm";
         }
 
         let xRenderer = xAxis.get("renderer");
@@ -86,19 +83,67 @@ window.AmChartsInterop = {
         });
         xRenderer.grid.template.setAll({ stroke: gridColor, strokeOpacity: 0.15 });
 
-        let yAxis = chart.yAxes.push(am5xy.ValueAxis.new(root, {
-            renderer: am5xy.AxisRendererY.new(root, {})
-        }));
-        let yRenderer = yAxis.get("renderer");
-        yRenderer.labels.template.set("fill", textColor);
-        if (config.yAxisMin !== undefined) yAxis.set("min", config.yAxisMin);
-        if (config.yAxisForceInteger) yAxis.set("maxPrecision", 0);
-        yRenderer.grid.template.setAll({ stroke: gridColor, strokeOpacity: 0.15 });
+        if (config.yAxes && Array.isArray(config.yAxes)) {
+            config.yAxes.forEach(yAxisConfig => {
+                const renderer = am5xy.AxisRendererY.new(root, { opposite: yAxisConfig.opposite || false });
+                renderer.labels.template.set("fill", textColor);
+                renderer.grid.template.setAll({ stroke: gridColor, strokeOpacity: 0.15 });
+                const yAxis = am5xy.ValueAxis.new(root, { renderer: renderer });
+                if (yAxisConfig.min !== undefined) yAxis.set("min", yAxisConfig.min);
+                if (yAxisConfig.max !== undefined) yAxis.set("max", yAxisConfig.max);
+                chart.yAxes.push(yAxis);
+            });
+        } else {
+            let yAxis = chart.yAxes.push(am5xy.ValueAxis.new(root, {
+                renderer: am5xy.AxisRendererY.new(root, {})
+            }));
+            let yRenderer = yAxis.get("renderer");
+            yRenderer.labels.template.set("fill", textColor);
+            if (config.yAxisMin !== undefined) yAxis.set("min", config.yAxisMin);
+            if (config.yAxisForceInteger) yAxis.set("maxPrecision", 0);
+            yRenderer.grid.template.setAll({ stroke: gridColor, strokeOpacity: 0.15 });
+        }
 
         config.series.forEach(seriesConfig => {
+            const yAxisIndex = seriesConfig.yAxisIndex || 0;
+            const yAxis = chart.yAxes.getIndex(yAxisIndex);
             let series;
 
-            if (seriesConfig.seriesType === 'line' || chartType === 'LineChart') {
+            const tooltip = am5.Tooltip.new(root, {
+                getFillFromSprite: true,
+                getLabelFillFromSprite: true,
+                pointerOrientation: "horizontal",
+                labelText: seriesConfig.tooltipText || "{valueX.formatDate('HH:mm')} {name}: {valueY}"
+            });
+
+            if (seriesConfig.seriesType === 'column') {
+                series = chart.series.push(am5xy.ColumnSeries.new(root, {
+                    name: seriesConfig.name,
+                    xAxis: xAxis,
+                    yAxis: yAxis,
+                    valueYField: seriesConfig.valueField,
+                    valueXField: config.xField,
+                    fill: seriesConfig.color ? am5.color(seriesConfig.color) : undefined,
+                    tooltip: tooltip
+                }));
+                series.columns.template.setAll({ cornerRadiusTL: 5, cornerRadiusTR: 5, cursorOverStyle: "pointer" });
+
+                // ▼▼▼ [추가] 막대그래프 위에 데이터 값 라벨을 추가합니다. ▼▼▼
+                series.bullets.push(() => am5.Bullet.new(root, {
+                    locationY: 1, // 막대 상단에 위치
+                    sprite: am5.Label.new(root, {
+                        text: "{valueY}건", // '건' 단위 추가
+                        fill: textColor,
+                        centerY: am5.p100,
+                        centerX: am5.p50,
+                        populateText: true,
+                        paddingBottom: 5 // 막대와의 간격
+                    })
+                }));
+                // ▲▲▲ [추가] 여기까지가 추가된 부분입니다. ▲▲▲
+
+            }
+            else {
                 series = chart.series.push(am5xy.LineSeries.new(root, {
                     name: seriesConfig.name,
                     xAxis: xAxis,
@@ -107,40 +152,16 @@ window.AmChartsInterop = {
                     valueXField: config.xField,
                     stroke: seriesConfig.color ? am5.color(seriesConfig.color) : undefined,
                     fill: seriesConfig.color ? am5.color(seriesConfig.color) : undefined,
-                    tooltip: am5.Tooltip.new(root, {
-                        getFillFromSprite: true,
-                        getLabelFillFromSprite: true,
-                        pointerOrientation: "horizontal",
-                        labelText: "{valueX.formatDate('HH:mm')} {name}: {valueY.formatNumber('#.00')} %"
-                    })
+                    tooltip: tooltip
                 }));
 
                 series.strokes.template.setAll({ strokeWidth: 2 });
-                series.bullets.push(() => am5.Bullet.new(root, {
-                    sprite: am5.Circle.new(root, { radius: 4, fill: series.get("fill") })
-                }));
-
-            } else { // ColumnSeries
-                series = chart.series.push(am5xy.ColumnSeries.new(root, {
-                    name: seriesConfig.name,
-                    xAxis: xAxis,
-                    yAxis: yAxis,
-                    valueYField: seriesConfig.valueField,
-                    valueXField: config.xField,
-                    tooltip: am5.Tooltip.new(root, {
-                        labelText: `{valueX.formatDate('${config.xAxisDateFormat}')}: {valueY}건`
-                    })
-                }));
-
-                series.columns.template.setAll({ cornerRadiusTL: 5, cornerRadiusTR: 5, cursorOverStyle: "pointer" });
-
-                series.bullets.push(() => am5.Bullet.new(root, {
-                    locationY: 1,
-                    sprite: am5.Label.new(root, {
-                        text: "{valueY}건", fill: textColor,
-                        centerY: am5.p100, centerX: am5.p50, populateText: true, paddingBottom: 5
-                    })
-                }));
+                const bulletRadius = seriesConfig.bulletRadius === undefined ? 4 : seriesConfig.bulletRadius;
+                if (bulletRadius > 0) {
+                    series.bullets.push(() => am5.Bullet.new(root, {
+                        sprite: am5.Circle.new(root, { radius: bulletRadius, fill: series.get("fill") })
+                    }));
+                }
             }
 
             series.data.processor = am5.DataProcessor.new(root, {
@@ -165,10 +186,7 @@ window.AmChartsInterop = {
             alignLabels: false
         }));
 
-        // Tooltip
         series.slices.template.set("tooltipText", "{category}: {value}건");
-
-        // Always-on Label
         series.labels.template.setAll({
             text: "{category}: {value}건",
             fill: root.interfaceColors.get("text"),
