@@ -20,5 +20,6 @@ namespace ITM.Dashboard.Api.Models
         public string SystemType { get; set; }
         public string Locale { get; set; }
         public string Timezone { get; set; }
+        public int TodayAlarmCount { get; set; }
     }
 }
