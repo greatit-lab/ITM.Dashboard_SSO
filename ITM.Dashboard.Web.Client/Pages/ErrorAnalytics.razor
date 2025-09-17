@@ -232,10 +232,10 @@ else
             // 2. 데이터 변수에 결과 할당
             _summary = await summaryTask ?? new ErrorAnalyticsSummaryDto();
             _trendData = await trendTask ?? new List<ErrorTrendDataPointDto>();
-            
+
             // 3. 데이터 로딩이 완료된 후, 결과 표시 플래그를 true로 설정
             _isSearched = true;
-            
+
             // 데이터 그리드 갱신
             if (_grid != null)
             {
@@ -255,8 +255,7 @@ else
             await InvokeAsync(StateHasChanged);
         }
     }
-    
-    // ▼▼▼ [추가] Reset 버튼 로직 ▼▼▼
+
     private async Task ResetFilters()
     {
         _selectedSite = null;
@@ -266,17 +265,15 @@ else
 
         _sdwts.Clear();
         _eqpIds.Clear();
-        
+
         _isSearched = false;
         _summary = new();
         _trendData = new();
-        
+
         if (_grid != null)
         {
             await _grid.ReloadServerData();
         }
-        
-        StateHasChanged();
     }
 
     private async Task<GridData<ErrorLogDto>> LoadGridData(GridState<ErrorLogDto> state)
@@ -319,7 +316,7 @@ else
 
         if (!string.IsNullOrEmpty(_selectedSite)) queryParams.Append($"&site={Uri.EscapeDataString(_selectedSite)}");
         if (!string.IsNullOrEmpty(_selectedSdwt)) queryParams.Append($"&sdwt={Uri.EscapeDataString(_selectedSdwt)}");
-        
+
         if (!string.IsNullOrEmpty(_selectedEqpId))
         {
             queryParams.Append($"&eqpids={Uri.EscapeDataString(_selectedEqpId)}");
