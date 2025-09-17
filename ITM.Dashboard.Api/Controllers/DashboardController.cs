@@ -91,25 +91,32 @@ namespace ITM.Dashboard.Api.Controllers
             await using var conn = new NpgsqlConnection(GetConnectionString());
             await conn.OpenAsync();
 
-            // [핵심 수정] 서브쿼리의 정렬 기준을 ts -> serv_ts 로 변경
+            // ▼▼▼ [수정] 오늘 발생한 에러 건수를 COUNT하는 서브쿼리로 변경 ▼▼▼
             var sqlBuilder = new StringBuilder(@"
-                SELECT 
-                    a.eqpid, 
-                    COALESCE(s.status, 'OFFLINE') = 'ONLINE' AS is_online, 
-                    s.last_perf_update AS last_contact,
-                    a.pc_name, 
-                    COALESCE(p.cpu_usage, 0) AS cpu_usage, 
-                    COALESCE(p.mem_usage, 0) AS mem_usage, 
-                    a.app_ver,
-                    a.type, a.ip_address, a.os, a.system_type, a.locale, a.timezone
-                FROM public.agent_info a
-                JOIN public.ref_equipment r ON a.eqpid = r.eqpid
-                LEFT JOIN public.agent_status s ON a.eqpid = s.eqpid
-                LEFT JOIN (
-                    SELECT eqpid, cpu_usage, mem_usage, ROW_NUMBER() OVER(PARTITION BY eqpid ORDER BY serv_ts DESC) as rn
-                    FROM public.eqp_perf
-                ) p ON a.eqpid = p.eqpid AND p.rn = 1
-                WHERE 1=1");
+        SELECT 
+            a.eqpid, 
+            COALESCE(s.status, 'OFFLINE') = 'ONLINE' AS is_online, 
+            s.last_perf_update AS last_contact,
+            a.pc_name, 
+            COALESCE(p.cpu_usage, 0) AS cpu_usage, 
+            COALESCE(p.mem_usage, 0) AS mem_usage, 
+            a.app_ver,
+            a.type, a.ip_address, a.os, a.system_type, a.locale, a.timezone,
+            COALESCE(e.alarm_count, 0) AS today_alarm_count  -- 에러 건수 (없으면 0)
+        FROM public.agent_info a
+        JOIN public.ref_equipment r ON a.eqpid = r.eqpid
+        LEFT JOIN public.agent_status s ON a.eqpid = s.eqpid
+        LEFT JOIN (
+            SELECT eqpid, cpu_usage, mem_usage, ROW_NUMBER() OVER(PARTITION BY eqpid ORDER BY serv_ts DESC) as rn
+            FROM public.eqp_perf
+        ) p ON a.eqpid = p.eqpid AND p.rn = 1
+        LEFT JOIN (
+            SELECT eqpid, COUNT(*) AS alarm_count 
+            FROM public.plg_error 
+            WHERE time_stamp >= CURRENT_DATE -- 오늘 0시 이후 데이터
+            GROUP BY eqpid
+        ) e ON a.eqpid = e.eqpid
+        WHERE 1=1");
 
             await using var cmd = new NpgsqlCommand();
             AddFilterLogic(sqlBuilder, cmd, site, sdwt);
@@ -136,6 +143,8 @@ namespace ITM.Dashboard.Api.Controllers
                     SystemType = reader.IsDBNull(10) ? string.Empty : reader.GetString(10),
                     Locale = reader.IsDBNull(11) ? string.Empty : reader.GetString(11),
                     Timezone = reader.IsDBNull(12) ? string.Empty : reader.GetString(12),
+                    // ▼▼▼ [수정] 조회된 알람 건수 값을 DTO에 할당 ▼▼▼
+                    TodayAlarmCount = Convert.ToInt32(reader.GetInt64(13))
                 });
             }
             return Ok(results);
