@@ -56,33 +56,40 @@ window.AmChartsInterop = {
         const isDarkMode = document.body.querySelector('.dark-theme-main-content') !== null;
         const textColor = isDarkMode ? am5.color(0xffffff) : am5.color(0x000000);
         const gridColor = isDarkMode ? am5.color(0xffffff) : am5.color(0x000000);
-
+    
         let cursor = chart.set("cursor", am5xy.XYCursor.new(root, {
             behavior: "zoomX"
         }));
         cursor.lineY.set("visible", false);
-
+    
         let xAxis = chart.xAxes.push(am5xy.DateAxis.new(root, {
-            baseInterval: { timeUnit: "minute", count: 5 },
+            baseInterval: { timeUnit: config.xTimeUnit || "day", count: 1 },
             renderer: am5xy.AxisRendererX.new(root, { minGridDistance: 80 }),
-            inputDateFormat: "yyyy-MM-ddTHH:mm:ss",
+            inputDateFormat: "yyyy-MM-ddTHH:mm-ss",
         }));
-
-        xAxis.set("gridIntervals", [
-            { timeUnit: "minute", count: 60 }
-        ]);
-
-        xAxis.get("dateFormats")["minute"] = "HH:mm";
-        xAxis.get("dateFormats")["hour"] = "HH:mm";
-        xAxis.get("dateFormats")["day"] = "yy-MM-dd";
-
+    
+        // C#에서 넘어온 baseInterval을 우선 적용 (5분 간격 데이터용)
+        if (config.baseInterval) {
+            xAxis.set("baseInterval", config.baseInterval);
+        }
+        // C#에서 넘어온 gridIntervals를 우선 적용 (60분 간격 레이블용)
+        if (config.gridIntervals) {
+            xAxis.set("gridIntervals", config.gridIntervals);
+        }
+    
+        if (config.xAxisDateFormat) {
+            xAxis.get("dateFormats")[config.xTimeUnit || "day"] = config.xAxisDateFormat;
+            xAxis.get("dateFormats")["hour"] = config.xAxisDateFormat;
+            xAxis.get("dateFormats")["minute"] = config.xAxisDateFormat;
+        }
+        
         let xRenderer = xAxis.get("renderer");
         xRenderer.labels.template.setAll({
             fill: textColor, rotation: -45, centerY: am5.p50,
             centerX: am5.p100, paddingRight: 10
         });
         xRenderer.grid.template.setAll({ stroke: gridColor, strokeOpacity: 0.15 });
-
+    
         let yAxis = chart.yAxes.push(am5xy.ValueAxis.new(root, {
             renderer: am5xy.AxisRendererY.new(root, {})
         }));
@@ -91,7 +98,7 @@ window.AmChartsInterop = {
         if (config.yAxisMin !== undefined) yAxis.set("min", config.yAxisMin);
         if (config.yAxisForceInteger) yAxis.set("maxPrecision", 0);
         yRenderer.grid.template.setAll({ stroke: gridColor, strokeOpacity: 0.15 });
-
+    
         config.series.forEach(seriesConfig => {
             let series;
             if (seriesConfig.seriesType === 'line') {
@@ -101,32 +108,52 @@ window.AmChartsInterop = {
                     yAxis: yAxis,
                     valueYField: seriesConfig.valueField,
                     valueXField: config.xField,
-                    // ▼▼▼ [핵심 수정] 시리즈 자체에 fill과 stroke을 설정합니다. ▼▼▼
                     stroke: seriesConfig.color ? am5.color(seriesConfig.color) : undefined,
                     fill: seriesConfig.color ? am5.color(seriesConfig.color) : undefined,
                     tooltip: am5.Tooltip.new(root, {
-                        getFillFromSprite: true, // 툴팁 배경을 시리즈의 fill 색상으로 설정
-                        getLabelFillFromSprite: true, // 툴팁 글자색을 자동으로 조절
+                        getFillFromSprite: true,
+                        getLabelFillFromSprite: true,
                         pointerOrientation: "horizontal",
                         labelText: "{valueX.formatDate('HH:mm')} {name}: {valueY.formatNumber('#.00')} %"
                     })
                 }));
-
+                
                 series.strokes.template.setAll({ strokeWidth: 2 });
-
                 series.bullets.push(function () {
                     return am5.Bullet.new(root, {
                         sprite: am5.Circle.new(root, {
                             radius: 4,
-                            // 점의 색상은 이제 자동으로 시리즈의 fill 색상을 따라갑니다.
                             fill: series.get("fill")
                         })
                     });
                 });
-            } else {
-                // (ColumnSeries 코드는 변경 없음)
+            } else { // 기본값: ColumnSeries (Error Analytics용)
+                series = chart.series.push(am5xy.ColumnSeries.new(root, {
+                    name: seriesConfig.name,
+                    xAxis: xAxis,
+                    yAxis: yAxis,
+                    valueYField: seriesConfig.valueField,
+                    valueXField: config.xField,
+                    tooltip: am5.Tooltip.new(root, {
+                        labelText: `{valueX.formatDate('${config.xAxisDateFormat}')}: {valueY}건`
+                    })
+                }));
+    
+                series.columns.template.setAll({ cornerRadiusTL: 5, cornerRadiusTR: 5, cursorOverStyle: "pointer" });
+                
+                series.bullets.push(function () {
+                    return am5.Bullet.new(root, {
+                        locationY: 1,
+                        sprite: am5.Label.new(root, {
+                            text: "{valueY}건",
+                            fill: textColor,
+                            centerY: am5.p100, centerX: am5.p50,
+                            populateText: true, paddingBottom: 5
+                        })
+                    });
+                });
             }
-
+            
             series.data.processor = am5.DataProcessor.new(root, {
                 dateFields: [config.xField],
                 dateFormat: "yyyy-MM-ddTHH:mm:ss"
@@ -134,13 +161,13 @@ window.AmChartsInterop = {
             series.data.setAll(data);
             series.appear(1000);
         });
-
+    
         let legend = chart.children.push(am5.Legend.new(root, {
             centerX: am5.p50, x: am5.p50
         }));
         legend.labels.template.set("fill", textColor);
         legend.data.setAll(chart.series.values);
-
+        
         chart.appear(1000, 100);
     },
 
