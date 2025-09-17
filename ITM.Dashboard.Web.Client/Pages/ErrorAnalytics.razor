@@ -127,7 +127,7 @@ else
     private bool _isSearched = false;
     private MudDataGrid<ErrorLogDto> _grid;
 
-    private DateRange _dateRange = new DateRange(DateTime.Now.Date.AddDays(-6), DateTime.Now.Date);
+    private DateRange _dateRange = new DateRange(DateTime.Now.Date.AddDays(-14), DateTime.Now.Date);
 
     private List<string> _sites = new();
     private List<string> _sdwts = new();
@@ -136,10 +136,10 @@ else
     private string _selectedSite;
     private string _selectedSdwt;
     private string _selectedEqpId;
-    
+
     private ErrorAnalyticsSummaryDto _summary = new();
     private List<ErrorTrendDataPointDto> _trendData = new();
-    
+
     private object _trendChartConfig;
     private object _donutChartConfig;
 
@@ -163,7 +163,7 @@ else
             valueField = "value",
             categoryField = "label"
         };
-        
+
         await LoadSites();
     }
 
@@ -184,6 +184,8 @@ else
         {
             var client = HttpClientFactory.CreateClient("ITM.Dashboard.Api");
             _sdwts = await client.GetFromJsonAsync<List<string>>($"api/Filters/sdwts/{_selectedSite}") ?? new();
+            // Site 변경 시 EQPID 목록도 바로 로드
+            _eqpIds = await client.GetFromJsonAsync<List<string>>($"api/Filters/eqpidsbysite/{_selectedSite}") ?? new();
         }
     }
 
@@ -202,7 +204,7 @@ else
             _eqpIds = await client.GetFromJsonAsync<List<string>>(url) ?? new();
         }
     }
-    
+
     private async Task<IEnumerable<string>> SearchEqpids(string value, CancellationToken token)
     {
         await Task.Yield();
@@ -210,11 +212,13 @@ else
         return _eqpIds.Where(x => x.Contains(value, StringComparison.InvariantCultureIgnoreCase));
     }
 
+    // ▼▼▼ [핵심 수정] 조회 버튼 클릭 로직을 개선합니다. ▼▼▼
     private async Task OnSearchClicked()
     {
+        // 1. 로딩 상태 시작, 이전 결과 숨김
         _isLoading = true;
-        _isSearched = true;
-        StateHasChanged(); 
+        _isSearched = false;
+        await InvokeAsync(StateHasChanged); // UI 즉시 업데이트
 
         var client = HttpClientFactory.CreateClient("ITM.Dashboard.Api");
         var query = BuildQueryString();
@@ -225,10 +229,18 @@ else
 
             await Task.WhenAll(summaryTask, trendTask);
 
+            // 2. 데이터 변수에 결과 할당
             _summary = await summaryTask ?? new ErrorAnalyticsSummaryDto();
             _trendData = await trendTask ?? new List<ErrorTrendDataPointDto>();
             
-            await _grid.ReloadServerData();
+            // 3. 데이터 로딩이 완료된 후, 결과 표시 플래그를 true로 설정
+            _isSearched = true;
+            
+            // 데이터 그리드 갱신
+            if (_grid != null)
+            {
+                await _grid.ReloadServerData();
+            }
         }
         catch (Exception ex)
         {
@@ -238,8 +250,9 @@ else
         }
         finally
         {
+            // 4. 로딩 상태 종료 및 최종 UI 갱신
             _isLoading = false;
-            StateHasChanged();
+            await InvokeAsync(StateHasChanged);
         }
     }
     
