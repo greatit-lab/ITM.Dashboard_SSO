@@ -2,8 +2,8 @@
 @inherits LayoutComponentBase
 @using ITM.Dashboard.Web.Client.Themes
 
-@* [수정] Theme 속성에 새로 만든 테마 객체를 바인딩합니다. *@
-<MudThemeProvider @bind-IsDarkMode="@_isDarkMode" Theme="MainTheme.MainITMTheme" />
+@* ▼▼▼ [수정] Theme 속성에 최종 ExecutiveTheme 객체를 바인딩합니다. ▼▼▼ *@
+<MudThemeProvider @bind-IsDarkMode="@_isDarkMode" Theme="ExecutiveTheme.ExecITMTheme" />
 <MudDialogProvider />
 <MudSnackbarProvider />
 <MudPopoverProvider />
@@ -14,7 +14,7 @@
         <MudText Typo="Typo.h5" Class="ml-3">ITM Dashboard</MudText>
         <MudSpacer />
         <MudTooltip Text="Toggle Dark/Light Mode">
-            <MudIconButton Icon="@(_isDarkMode ? Icons.Material.Rounded.WbSunny : Icons.Material.Rounded.Brightness4)" Color="Color.Inherit" OnClick="@ToggleTheme" />
+            <MudIconButton Icon="@(_isDarkMode? Icons.Material.Rounded.WbSunny : Icons.Material.Rounded.Brightness4)" Color="Color.Inherit" OnClick="@ToggleTheme" />
         </MudTooltip>
     </MudAppBar>
     <MudDrawer @bind-Open="_drawerOpen" ClipMode="DrawerClipMode.Always" Elevation="2">
