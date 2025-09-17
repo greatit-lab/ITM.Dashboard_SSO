@@ -150,11 +150,21 @@ else
             xField = "date",
             xTimeUnit = "day",
             xAxisDateFormat = "yy-MM-dd",
-            yAxisMin = 0,
-            yAxisForceInteger = true,
+            yAxes = new object[]
+            {
+                new { min = 0 }
+            },
             series = new[]
             {
-                new { name = "Error 발생 건수", valueField = "count" }
+                // ▼▼▼ [수정] seriesType을 'column'으로 명시합니다. ▼▼▼
+                new { 
+                    name = "Error 발생 건수", 
+                    valueField = "count", 
+                    yAxisIndex = 0,
+                    seriesType = "column", // '이 시리즈는 막대 차트로 그려주세요'
+                    color = "#E57373",
+                    tooltipText = "{valueX.formatDate('yyyy-MM-dd')}: {valueY}건" // 툴팁 텍스트 지정
+                }
             }
         };
 
