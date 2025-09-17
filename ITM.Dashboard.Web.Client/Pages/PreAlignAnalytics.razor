@@ -1,6 +1,7 @@
 @* ITM.Dashboard.Web.Client/Pages/PreAlignAnalytics.razor *@
 @page "/prealign-analytics"
 @using ITM.Dashboard.Web.Client.Models
+@using ITM.Dashboard.Web.Client.Shared
 @inject IHttpClientFactory HttpClientFactory
 
 <PageTitle>Pre-Align Analytics</PageTitle>
@@ -50,49 +51,25 @@
 
 @if (_isLoading)
 {
-    <div class="d-flex justify-center mt-4">
+    <div class="d-flex justify-center mt-16">
         <MudProgressCircular Color="Color.Primary" Indeterminate="true" />
     </div>
 }
 else if (_isSearched)
 {
-    <MudGrid Spacing="3">
-        <MudItem xs="12">
-            <MudPaper Class="pa-4">
-                <MudStack Spacing="3">
-                    @if (_allSeries.Any())
-                    {
-                        <MudStack Row="true" Justify="Justify.SpaceBetween" AlignItems="AlignItems.Center">
-                            <MudText Typo="Typo.h6">Pre-Align Trend</MudText>
-                            <MudStack Row="true">
-                                <MudCheckBox T="bool" Checked="@_showXmm" CheckedChanged="@( (bool v) => { _showXmm = v; UpdateVisibleChartSeries(); })" Label="Xmm" Color="Color.Primary" Size="Size.Small" />
-                                <MudCheckBox T="bool" Checked="@_showYmm" CheckedChanged="@( (bool v) => { _showYmm = v; UpdateVisibleChartSeries(); })" Label="Ymm" Color="Color.Secondary" Size="Size.Small" />
-                                <MudCheckBox T="bool" Checked="@_showNotch" CheckedChanged="@( (bool v) => { _showNotch = v; UpdateVisibleChartSeries(); })" Label="Notch" Color="Color.Success" Size="Size.Small" />
-                            </MudStack>
-                        </MudStack>
-
-                        <MudChart ChartType="ChartType.Line"
-                                  ChartSeries="_visibleSeries"
-                                  XAxisLabels="_chartXAxisLabels"
-                                  Height="400px"
-                                  Options="_chartJsOptions" />
-
-                        <MudRangeSlider Range="_xIndexRange" RangeChanged="OnXIndexRangeChanged"
-                                        Min="0" Max="@(_rawData.Count > 0 ? _rawData.Count - 1 : 1)" Step="1" />
-                        <div>
-                            X축 범위:
-                            <MudChip T="object" Size="Size.Small" Color="Color.Secondary">@_chartXAxisLabels.FirstOrDefault()</MudChip> ~
-                            <MudChip T="object" Size="Size.Small" Color="Color.Secondary">@_chartXAxisLabels.LastOrDefault()</MudChip>
-                        </div>
-                    }
-                    else
-                    {
-                        <MudText>데이터가 없습니다.</MudText>
-                    }
-                </MudStack>
-            </MudPaper>
-        </MudItem>
-    </MudGrid>
+    <MudPaper Class="pa-4">
+        <MudText Typo="Typo.h6" GutterBottom="true">Pre-Align Trend</MudText>
+        @if (_rawData.Any())
+        {
+            <AmChart ChartData="_rawData" ChartConfig="_chartConfig" Height="500px" />
+        }
+        else
+        {
+            <div class="d-flex justify-center align-center" style="height:500px;">
+                <MudText>조회된 데이터가 없습니다.</MudText>
+            </div>
+        }
+    </MudPaper>
 }
 else
 {
@@ -113,30 +90,45 @@ else
     private List<string> _sites = new();
     private List<string> _sdwts = new();
     private List<string> _availableEqpIds = new();
+
     private List<PreAlignDataDto> _rawData = new();
-
-    private List<ChartSeries> _allSeries = new();
-    private List<ChartSeries> _visibleSeries = new();
-    private string[] _chartXAxisLabels = Array.Empty<string>();
-    private object _chartJsOptions = new();
-
-    private bool _showXmm = true;
-    private bool _showYmm = true;
-    private bool _showNotch = true;
-
-    private Range<int> _xIndexRange = new(0, 1);
+    private object _chartConfig;
 
     protected override async Task OnInitializedAsync()
     {
         var client = HttpClientFactory.CreateClient("ITM.Dashboard.Api");
         _sites = await client.GetFromJsonAsync<List<string>>("api/Filters/sites") ?? new();
-        _chartJsOptions = new { scales = new { y = new { suggestedMin = -0.1, suggestedMax = 0.1 } } };
-    }
 
-    private void OnXIndexRangeChanged(Range<int> newRange)
-    {
-        _xIndexRange = newRange;
-        ApplyXFilterAndUpdateChart();
+        // ▼▼▼ [수정] 요청하신 6가지 기능을 모두 포함하도록 amCharts 설정을 재정의합니다. ▼▼▼
+        _chartConfig = new
+        {
+            xField = "timestamp",
+            xTimeUnit = "minute",
+            xAxisDateFormat = "yy-MM-dd HH:mm", // 5. X축 라벨 형식
+            yAxes = new object[] // 1. Y축 분리
+            {
+                new { min = -0.4, max = 0.4 }, // 2. Y1축 범위 고정
+                new { opposite = true }        // Y2축은 오른쪽에 표시
+            },
+            series = new object[]
+            {
+                new {
+                    name = "Xmm", valueField = "xmm", seriesType = "line", color = "#33b2ff",
+                    yAxisIndex = 0, bulletRadius = 2,
+                    tooltipText = "{valueX.formatDate('HH:mm:ss')}: {valueY.formatNumber('#.00')}" // 3, 4. 툴팁 형식
+                },
+                new {
+                    name = "Ymm", valueField = "ymm", seriesType = "line", color = "#39e6a3",
+                    yAxisIndex = 0, bulletRadius = 2,
+                    tooltipText = "{valueX.formatDate('HH:mm:ss')}: {valueY.formatNumber('#.00')}" // 3, 4. 툴팁 형식
+                },
+                new {
+                    name = "Notch", valueField = "notch", seriesType = "line", color = "#ffcb33",
+                    yAxisIndex = 1,
+                    tooltipText = "{valueX.formatDate('HH:mm:ss')}: {valueY.formatNumber('#.00')}" // 3, 4. 툴팁 형식
+                }
+            }
+        };
     }
 
     private async Task OnSiteChanged(string newSite)
@@ -160,19 +152,19 @@ else
         }
         _selectedEqpId = null;
         _availableEqpIds.Clear();
-        if (!string.IsNullOrEmpty(_selectedSite))
-        {
-            var client = HttpClientFactory.CreateClient("ITM.Dashboard.Api");
-            if (level == "site")
-            {
-                _sdwts = await client.GetFromJsonAsync<List<string>>($"api/Filters/sdwts/{_selectedSite}") ?? new();
-            }
 
-            var url = string.IsNullOrEmpty(_selectedSdwt)
-                ? $"api/Filters/eqpidsbysite/{_selectedSite}"
-                : $"api/Filters/eqpids/{_selectedSdwt}";
-            _availableEqpIds = await client.GetFromJsonAsync<List<string>>(url) ?? new();
+        if (string.IsNullOrEmpty(_selectedSite)) return;
+
+        var client = HttpClientFactory.CreateClient("ITM.Dashboard.Api");
+        if (level == "site")
+        {
+            _sdwts = await client.GetFromJsonAsync<List<string>>($"api/Filters/sdwts/{_selectedSite}") ?? new();
         }
+
+        var url = string.IsNullOrEmpty(_selectedSdwt)
+            ? $"api/Filters/eqpidsbysite/{_selectedSite}"
+            : $"api/Filters/eqpids/{_selectedSdwt}";
+        _availableEqpIds = await client.GetFromJsonAsync<List<string>>(url) ?? new();
         StateHasChanged();
     }
 
@@ -186,32 +178,29 @@ else
     private async Task OnSearchClicked()
     {
         if (string.IsNullOrEmpty(_selectedEqpId) || _startDate == null || _endDate == null) return;
-        _isLoading = true;
-        _isSearched = true;
-        ClearResults();
-        StateHasChanged();
 
+        _isLoading = true;
+        _isSearched = false;
+        _rawData.Clear();
+        await InvokeAsync(StateHasChanged);
+
+        var client = HttpClientFactory.CreateClient("ITM.Dashboard.Api");
         try
         {
-            var client = HttpClientFactory.CreateClient("ITM.Dashboard.Api");
             var query = $"eqpid={Uri.EscapeDataString(_selectedEqpId)}&startDate={_startDate.Value:yyyy-MM-dd}&endDate={_endDate.Value:yyyy-MM-dd}";
             var data = await client.GetFromJsonAsync<List<PreAlignDataDto>>($"api/PreAlignAnalytics/data?{query}");
-
-            if (data != null && data.Any())
-            {
-                _rawData = data;
-                _xIndexRange = new Range<int>(0, _rawData.Count > 0 ? _rawData.Count - 1 : 1);
-                PrepareAndFilterChartData();
-            }
+            _rawData = data ?? new List<PreAlignDataDto>();
         }
         catch (Exception ex)
         {
             Console.WriteLine($"Error loading Pre-Align Analytics data: {ex.Message}");
+            _rawData.Clear();
         }
         finally
         {
+            _isSearched = true;
             _isLoading = false;
-            StateHasChanged();
+            await InvokeAsync(StateHasChanged);
         }
     }
 
@@ -224,83 +213,9 @@ else
         _endDate = DateTime.Now.Date;
         _sdwts.Clear();
         _availableEqpIds.Clear();
+
         _isSearched = false;
-        ClearResults();
-        _xIndexRange = new Range<int>(0, 1);
-        StateHasChanged();
-    }
-
-    private void ClearResults()
-    {
         _rawData.Clear();
-        _allSeries.Clear();
-        _visibleSeries.Clear();
-        _chartXAxisLabels = Array.Empty<string>();
-    }
-
-    private void PrepareAndFilterChartData()
-    {
-        if (!_rawData.Any()) return;
-
-        _allSeries = new List<ChartSeries>
-        {
-            new ChartSeries { Name = "Xmm", Data = _rawData.Select(d => d.Xmm).ToArray() },
-            new ChartSeries { Name = "Ymm", Data = _rawData.Select(d => d.Ymm).ToArray() },
-            new ChartSeries { Name = "Notch", Data = _rawData.Select(d => d.Notch).ToArray() }
-        };
-
-        ApplyXFilterAndUpdateChart();
-    }
-
-    private void ApplyXFilterAndUpdateChart()
-    {
-        if (!_rawData.Any()) return;
-
-        var start = Math.Max(0, _xIndexRange.Start);
-        var end = Math.Min(_rawData.Count - 1, _xIndexRange.End);
-
-        if (start > end) return;
-
-        var filteredRawData = _rawData.Skip(start).Take(end - start + 1).ToList();
-        _chartXAxisLabels = filteredRawData.Select(d => d.Timestamp.ToString("MM-dd HH:mm")).ToArray();
-        
-        UpdateVisibleChartSeries();
-    }
-
-    private void UpdateVisibleChartSeries()
-    {
-        if (!_allSeries.Any() || !_rawData.Any()) return;
-        
-        var start = Math.Max(0, _xIndexRange.Start);
-        var end = Math.Min(_rawData.Count - 1, _xIndexRange.End);
-
-        if (start > end) 
-        {
-            _visibleSeries = new List<ChartSeries>();
-            StateHasChanged();
-            return;
-        };
-
-        var tempSeries = new List<ChartSeries>();
-        if (_showXmm)
-        {
-            var xmmData = _allSeries.FirstOrDefault(s => s.Name == "Xmm")?.Data;
-            if (xmmData != null)
-                tempSeries.Add(new ChartSeries { Name = "Xmm", Data = xmmData.Skip(start).Take(end - start + 1).ToArray() });
-        }
-        if (_showYmm)
-        {
-            var ymmData = _allSeries.FirstOrDefault(s => s.Name == "Ymm")?.Data;
-            if (ymmData != null)
-                tempSeries.Add(new ChartSeries { Name = "Ymm", Data = ymmData.Skip(start).Take(end - start + 1).ToArray() });
-        }
-        if (_showNotch)
-        {
-            var notchData = _allSeries.FirstOrDefault(s => s.Name == "Notch")?.Data;
-            if (notchData != null)
-                tempSeries.Add(new ChartSeries { Name = "Notch", Data = notchData.Skip(start).Take(end - start + 1).ToArray() });
-        }
-        _visibleSeries = tempSeries;
         StateHasChanged();
     }
 }
