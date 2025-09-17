@@ -18,7 +18,7 @@ namespace ITM.Dashboard.Web.Client
 
             builder.Services.AddHttpClient("ITM.Dashboard.Api", client =>
             {
-                client.BaseAddress = new Uri("https://localhost:7278");
+                client.BaseAddress = new Uri("https://127.0.0.1:7278");
             });
 
             await builder.Build().RunAsync();
