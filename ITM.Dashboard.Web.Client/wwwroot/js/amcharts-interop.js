@@ -24,12 +24,12 @@ window.AmChartsInterop = {
 
                 const theme = isDarkMode ? am5themes_Dark.new(root) : am5themes_Animated.new(root);
                 root.setThemes([theme]);
-                
+
                 root.container.children.clear();
                 root._logo?.dispose();
 
                 if (!data || data.length === 0) {
-                    return; 
+                    return;
                 }
 
                 switch (chartType) {
@@ -56,33 +56,33 @@ window.AmChartsInterop = {
         const isDarkMode = document.body.querySelector('.dark-theme-main-content') !== null;
         const textColor = isDarkMode ? am5.color(0xffffff) : am5.color(0x000000);
         const gridColor = isDarkMode ? am5.color(0xffffff) : am5.color(0x000000);
-    
+
         let cursor = chart.set("cursor", am5xy.XYCursor.new(root, {
             behavior: "zoomX"
         }));
         cursor.lineY.set("visible", false);
-    
+
         let xAxis = chart.xAxes.push(am5xy.DateAxis.new(root, {
             baseInterval: { timeUnit: "minute", count: 5 },
             renderer: am5xy.AxisRendererX.new(root, { minGridDistance: 80 }),
             inputDateFormat: "yyyy-MM-ddTHH:mm:ss",
         }));
-    
+
         xAxis.set("gridIntervals", [
             { timeUnit: "minute", count: 60 }
         ]);
-    
+
         xAxis.get("dateFormats")["minute"] = "HH:mm";
         xAxis.get("dateFormats")["hour"] = "HH:mm";
         xAxis.get("dateFormats")["day"] = "yy-MM-dd";
-        
+
         let xRenderer = xAxis.get("renderer");
         xRenderer.labels.template.setAll({
             fill: textColor, rotation: -45, centerY: am5.p50,
             centerX: am5.p100, paddingRight: 10
         });
         xRenderer.grid.template.setAll({ stroke: gridColor, strokeOpacity: 0.15 });
-    
+
         let yAxis = chart.yAxes.push(am5xy.ValueAxis.new(root, {
             renderer: am5xy.AxisRendererY.new(root, {})
         }));
@@ -91,7 +91,7 @@ window.AmChartsInterop = {
         if (config.yAxisMin !== undefined) yAxis.set("min", config.yAxisMin);
         if (config.yAxisForceInteger) yAxis.set("maxPrecision", 0);
         yRenderer.grid.template.setAll({ stroke: gridColor, strokeOpacity: 0.15 });
-    
+
         config.series.forEach(seriesConfig => {
             let series;
             if (seriesConfig.seriesType === 'line') {
@@ -111,9 +111,9 @@ window.AmChartsInterop = {
                         labelText: "{valueX.formatDate('HH:mm')} {name}: {valueY.formatNumber('#.00')} %"
                     })
                 }));
-                
+
                 series.strokes.template.setAll({ strokeWidth: 2 });
-                
+
                 series.bullets.push(function () {
                     return am5.Bullet.new(root, {
                         sprite: am5.Circle.new(root, {
@@ -126,7 +126,7 @@ window.AmChartsInterop = {
             } else {
                 // (ColumnSeries 코드는 변경 없음)
             }
-            
+
             series.data.processor = am5.DataProcessor.new(root, {
                 dateFields: [config.xField],
                 dateFormat: "yyyy-MM-ddTHH:mm:ss"
@@ -134,13 +134,13 @@ window.AmChartsInterop = {
             series.data.setAll(data);
             series.appear(1000);
         });
-    
+
         let legend = chart.children.push(am5.Legend.new(root, {
             centerX: am5.p50, x: am5.p50
         }));
         legend.labels.template.set("fill", textColor);
         legend.data.setAll(chart.series.values);
-        
+
         chart.appear(1000, 100);
     },
 
@@ -148,15 +148,24 @@ window.AmChartsInterop = {
         let series = chart.series.push(am5percent.PieSeries.new(root, {
             valueField: config.valueField,
             categoryField: config.categoryField,
-            alignLabels: false
+            alignLabels: true // 라벨 정렬을 활성화하여 겹침을 방지
         }));
         
+        series.slices.template.set("tooltipText", "{category}: {value}건");
+    
+        // ▼▼▼ [수정] 차트에 항상 표시되는 라벨의 텍스트를 설정합니다. ▼▼▼
         series.labels.template.setAll({
+            // EQPID와 발생 건수를 모두 표시하도록 텍스트 형식을 변경합니다.
+            text: "{category}: {value}건", 
             fill: root.interfaceColors.get("text"),
-            textType: "circular", centerX: 0, centerY: 0, fontSize: 10,
+            textType: "circular", 
+            centerX: 0, 
+            centerY: 0, 
+            fontSize: 10,
         });
-
-        series.ticks.template.set("forceHidden", true);
+    
+        series.ticks.template.set("forceHidden", false); // 라벨과 조각을 잇는 선을 다시 표시
+    
         series.data.setAll(data);
         series.appear(1000, 100);
     },
