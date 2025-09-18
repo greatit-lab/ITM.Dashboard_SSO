@@ -155,7 +155,10 @@ window.AmChartsInterop = {
                     tooltip: tooltip
                 }));
 
-                series.strokes.template.setAll({ strokeWidth: 2 });
+                // ▼▼▼ [수정] strokeWidth를 C# 설정에서 가져오도록 변경합니다. ▼▼▼
+                series.strokes.template.setAll({ 
+                    strokeWidth: seriesConfig.strokeWidth || 2 // C#에서 값이 없으면 기본값 2 사용
+                });
                 const bulletRadius = seriesConfig.bulletRadius === undefined ? 4 : seriesConfig.bulletRadius;
                 if (bulletRadius > 0) {
                     series.bullets.push(() => am5.Bullet.new(root, {
