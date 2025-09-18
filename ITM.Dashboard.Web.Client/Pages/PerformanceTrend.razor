@@ -181,15 +181,9 @@ else
 @code {
     private enum FilterState
     {
-        Initial,        // Site만 활성화
-        SelectSdwt,     // Site 선택됨
-        SelectEqpId,    // Sdwt 선택됨
-        ReadyToSearch,  // EqpId 선택됨
-        Searched,       // 조회됨 → 실시간 데이터간격 활성화
-        RealTime        // 실시간 → 나머지 필터 비활성화
+        Initial, SelectSdwt, SelectEqpId, ReadyToSearch, Searched, RealTime
     }
     private FilterState _filterState = FilterState.Initial;
-
     private bool _isLoading = false;
     private bool _isSearched = false;
     private MudAutocomplete<string> _eqpIdAutocomplete;
@@ -209,8 +203,7 @@ else
 
     private object _cpuChartConfig;
     private object _memoryChartConfig;
-
-    private int _selectedIntervalSeconds = 0; // 0 = 미지정
+    private int _selectedIntervalSeconds = 0;
     private Timer? _timer;
 
     protected override async Task OnInitializedAsync()
@@ -218,15 +211,17 @@ else
         var client = HttpClientFactory.CreateClient("ITM.Dashboard.Api");
         _sites = await client.GetFromJsonAsync<List<string>>("api/Filters/sites") ?? new();
 
+        // ▼▼▼ [수정] 차트 포인트/라인 크기 조정 및 Y축 설정 추가 ▼▼▼
         _cpuChartConfig = new
         {
             xField = "timestamp",
             xTimeUnit = "minute",
             xAxisDateFormat = "MM-dd HH:mm",
-            yAxisTitle = "CPU (%)",
+            yAxes = new object[] { new { min = 0, max = 100 } }, // Y축 범위를 0-100으로 고정
             series = new[]
             {
-                new { name = "CPU", valueField = "cpuUsage", seriesType = "line", color = "#33b2ff", bulletSize = 2 }
+                new { name = "CPU", valueField = "cpuUsage", seriesType = "line", color = "#33b2ff", 
+                      bulletRadius = 1, strokeWidth = 1 } // 포인트/라인 크기
             }
         };
 
@@ -235,10 +230,11 @@ else
             xField = "timestamp",
             xTimeUnit = "minute",
             xAxisDateFormat = "MM-dd HH:mm",
-            yAxisTitle = "Memory (%)",
+            yAxes = new object[] { new { min = 0, max = 100 } }, // Y축 범위를 0-100으로 고정
             series = new[]
             {
-                new { name = "Memory", valueField = "memoryUsage", seriesType = "line", color = "#39e6a3", bulletSize = 2 }
+                new { name = "Memory", valueField = "memoryUsage", seriesType = "line", color = "#39e6a3", 
+                      bulletRadius = 1, strokeWidth = 1 } // 포인트/라인 크기
             }
         };
     }
@@ -291,13 +287,16 @@ else
         return Task.CompletedTask;
     }
 
+    // ▼▼▼ [수정] 조회 버튼 클릭 시 UI 즉시 반응하도록 로직 변경 ▼▼▼
     private async Task OnSearchClicked()
     {
         if (string.IsNullOrEmpty(_selectedEqpId)) return;
 
         _isLoading = true;
         _isSearched = true;
+        ClearResults();
         StateHasChanged();
+        await Task.Delay(1); // Blazor가 UI를 업데이트(로딩 아이콘 표시)할 시간을 줍니다.
 
         await UpdateChartDataAsync();
 
@@ -309,7 +308,6 @@ else
     private async Task OnIntervalChanged(int interval)
     {
         _selectedIntervalSeconds = interval;
-
         if (interval > 0)
         {
             _filterState = FilterState.RealTime;
@@ -320,7 +318,6 @@ else
             _filterState = FilterState.Searched;
             await StopTimerAsync();
         }
-
         StateHasChanged();
     }
 
@@ -334,7 +331,6 @@ else
         _availableEqpIds.Clear();
         if (_eqpIdAutocomplete != null)
             await _eqpIdAutocomplete.ResetAsync();
-
         ClearResults();
         _isSearched = false;
         await StopTimerAsync();
@@ -347,7 +343,6 @@ else
     private async Task StartTimerAsync()
     {
         if (string.IsNullOrEmpty(_selectedEqpId)) return;
-
         await StopTimerAsync();
         _isSearched = true;
 
@@ -364,16 +359,16 @@ else
         }
     }
 
+    // ▼▼▼ [수정] 데이터 조회 시 기간에 따라 집계 단위를 동적으로 조절하는 로직 추가 ▼▼▼
     private async Task UpdateChartDataAsync()
     {
         if (string.IsNullOrEmpty(_selectedEqpId)) return;
-
         try
         {
             DateTime start, end;
+            int intervalToUse = _selectedIntervalSeconds;
 
-            // ✅ 실시간 모드일 경우: 현재시간 기준 1시간 전부터 지금까지
-            if (_filterState == FilterState.RealTime && _selectedIntervalSeconds > 0)
+            if (_filterState == FilterState.RealTime && intervalToUse > 0)
             {
                 end = DateTime.Now;
                 start = end.AddHours(-1);
@@ -381,19 +376,24 @@ else
             else
             {
                 start = _startDate ?? DateTime.Now.Date.AddDays(-1);
-                end = (_endDate ?? DateTime.Now.Date).AddDays(1); // 종료일 포함
+                end = (_endDate ?? DateTime.Now.Date).AddDays(1);
+
+                // 기간에 따른 동적 집계 간격 설정 (성능 최적화)
+                var dateDiffDays = (end - start).TotalDays;
+                if (dateDiffDays > 30) intervalToUse = 3600; // 1시간
+                else if (dateDiffDays > 7) intervalToUse = 1800; // 30분
+                else intervalToUse = 300; // 5분 (기본값)
             }
 
             var client = HttpClientFactory.CreateClient("ITM.Dashboard.Api");
             var query = new System.Text.StringBuilder();
             query.Append($"startDate={Uri.EscapeDataString(start.ToString("o"))}");
             query.Append($"&endDate={Uri.EscapeDataString(end.ToString("o"))}");
-            query.Append($"&intervalSeconds={_selectedIntervalSeconds}");
+            query.Append($"&intervalSeconds={intervalToUse}"); // 계산된 간격 사용
             query.Append($"&eqpids={Uri.EscapeDataString(_selectedEqpId)}");
 
             var data = await client.GetFromJsonAsync<List<PerformanceDataPointWithEqpIdDto>>(
                 $"api/PerformanceAnalytics/history?{query}");
-
             if (data != null && data.Any())
             {
                 _chartData = data;
