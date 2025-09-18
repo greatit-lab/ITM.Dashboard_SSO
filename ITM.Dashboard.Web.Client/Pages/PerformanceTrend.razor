@@ -94,20 +94,19 @@
     </MudGrid>
 </MudPaper>
 
-@if (_isLoading)
-{
-    <div class="d-flex justify-center align-center mt-16">
-        <MudProgressCircular Color="Color.Primary" Indeterminate="true" />
-    </div>
-}
-else if (_isSearched)
+@if (_isSearched)
 {
     <MudGrid Spacing="3">
-        <!-- CPU Chart -->
         <MudItem xs="12" md="6">
-            <MudPaper Class="pa-4" Style="height:100%;">
+            <MudPaper Class="pa-4" Style="height:450px; position:relative;">
                 <MudText Typo="Typo.h6" GutterBottom="true">@_selectedEqpId CPU 성능 트렌드</MudText>
-                @if (_chartData.Any())
+                @if (_isLoading)
+                {
+                    <div class="d-flex justify-center align-center" style="height:calc(100% - 40px);">
+                        <MudProgressCircular Color="Color.Primary" Indeterminate="true" />
+                    </div>
+                }
+                else if (_chartData.Any())
                 {
                     <AmChart ChartData="_chartData" ChartConfig="_cpuChartConfig" Height="400px" />
                 }
@@ -120,11 +119,16 @@ else if (_isSearched)
             </MudPaper>
         </MudItem>
 
-        <!-- Memory Chart -->
         <MudItem xs="12" md="6">
-            <MudPaper Class="pa-4" Style="height:100%;">
+            <MudPaper Class="pa-4" Style="height:450px; position:relative;">
                 <MudText Typo="Typo.h6" GutterBottom="true">@_selectedEqpId Memory 성능 트렌드</MudText>
-                @if (_chartData.Any())
+                @if (_isLoading)
+                {
+                    <div class="d-flex justify-center align-center" style="height:calc(100% - 40px);">
+                        <MudProgressCircular Color="Color.Info" Indeterminate="true" />
+                    </div>
+                }
+                else if (_chartData.Any())
                 {
                     <AmChart ChartData="_chartData" ChartConfig="_memoryChartConfig" Height="400px" />
                 }
@@ -137,7 +141,6 @@ else if (_isSearched)
             </MudPaper>
         </MudItem>
 
-        <!-- Summary -->
         <MudItem xs="12">
             <MudPaper Class="pa-4">
                 <MudText Typo="Typo.h6" GutterBottom="true">성능 요약</MudText>
