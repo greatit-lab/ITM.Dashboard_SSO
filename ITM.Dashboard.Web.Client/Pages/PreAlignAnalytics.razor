@@ -1,14 +1,16 @@
 @* ITM.Dashboard.Web.Client/Pages/PreAlignAnalytics.razor *@
+
 @page "/prealign-analytics"
 @using ITM.Dashboard.Web.Client.Models
 @using ITM.Dashboard.Web.Client.Shared
 @inject IHttpClientFactory HttpClientFactory
+@inject IJSRuntime JSRuntime
 
-<PageTitle>Pre-Align Analytics</PageTitle>
+<PageTitle>PreAlign Data</PageTitle>
 
 <MudStack Row="true" AlignItems="AlignItems.Center" Class="mb-2">
     <MudIcon Icon="@Icons.Material.Rounded.GpsFixed" Size="Size.Large" />
-    <MudText Typo="Typo.h4">Pre-Align 분석</MudText>
+    <MudText Typo="Typo.h4">PreAlign Data</MudText>
 </MudStack>
 
 <MudPaper Class="pa-4 mb-4">
@@ -58,10 +60,10 @@
 else if (_isSearched)
 {
     <MudPaper Class="pa-4">
-        <MudText Typo="Typo.h6" GutterBottom="true">Pre-Align Trend</MudText>
+        <MudText Typo="Typo.h6" GutterBottom="true">PreAlign Data Trend</MudText>
         @if (_rawData.Any())
         {
-            <AmChart ChartData="_rawData" ChartConfig="_chartConfig" Height="500px" />
+            <AmChart ChartData="_rawData" ChartConfig="_chartConfig" ChartType="PreAlignAnalyticsChart" Height="500px" />
         }
         else
         {
@@ -99,33 +101,41 @@ else
         var client = HttpClientFactory.CreateClient("ITM.Dashboard.Api");
         _sites = await client.GetFromJsonAsync<List<string>>("api/Filters/sites") ?? new();
 
-        // ▼▼▼ [수정] 요청하신 6가지 기능을 모두 포함하도록 amCharts 설정을 재정의합니다. ▼▼▼
+        // ▼▼▼ [수정] tooltipText 부분을 아래와 같이 변경합니다. ▼▼▼
         _chartConfig = new
         {
             xField = "timestamp",
             xTimeUnit = "minute",
-            xAxisDateFormat = "yy-MM-dd HH:mm", // 5. X축 라벨 형식
-            yAxes = new object[] // 1. Y축 분리
+            yAxes = new object[]
             {
-                new { min = -0.4, max = 0.4 }, // 2. Y1축 범위 고정
-                new { opposite = true }        // Y2축은 오른쪽에 표시
+                new { min = -0.4, max = 0.4 },
+                new { opposite = true }
             },
             series = new object[]
             {
                 new {
-                    name = "Xmm", valueField = "xmm", seriesType = "line", color = "#33b2ff",
-                    yAxisIndex = 0, bulletRadius = 2,
-                    tooltipText = "{valueX.formatDate('HH:mm:ss')}: {valueY.formatNumber('#.00')}" // 3, 4. 툴팁 형식
+                    name = "Xmm",
+                    valueField = "xmm",
+                    color = "#33b2ff",
+                    yAxisIndex = 0,
+                    bulletRadius = 4,
+                    tooltipText = "{valueX.formatDate('HH:mm:ss')} {name}: {valueY}" // ✅ 2. 툴팁 형식 변경
                 },
                 new {
-                    name = "Ymm", valueField = "ymm", seriesType = "line", color = "#39e6a3",
-                    yAxisIndex = 0, bulletRadius = 2,
-                    tooltipText = "{valueX.formatDate('HH:mm:ss')}: {valueY.formatNumber('#.00')}" // 3, 4. 툴팁 형식
+                    name = "Ymm",
+                    valueField = "ymm",
+                    color = "#39e6a3",
+                    yAxisIndex = 0,
+                    bulletRadius = 4,
+                    tooltipText = "{valueX.formatDate('HH:mm:ss')} {name}: {valueY}" // ✅ 2. 툴팁 형식 변경
                 },
                 new {
-                    name = "Notch", valueField = "notch", seriesType = "line", color = "#ffcb33",
+                    name = "Notch",
+                    valueField = "notch",
+                    color = "#ffcb33",
                     yAxisIndex = 1,
-                    tooltipText = "{valueX.formatDate('HH:mm:ss')}: {valueY.formatNumber('#.00')}" // 3, 4. 툴팁 형식
+                    bulletRadius = 4,
+                    tooltipText = "{valueX.formatDate('HH:mm:ss')} {name}: {valueY}" // ✅ 2. 툴팁 형식 변경
                 }
             }
         };
