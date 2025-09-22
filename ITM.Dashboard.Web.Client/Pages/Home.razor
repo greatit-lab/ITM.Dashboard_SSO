@@ -1,4 +1,5 @@
 @* // ITM.Dashboard.Web.Client/Pages/Home.razor *@
+
 @page "/"
 @using ITM.Dashboard.Web.Client.Models
 @using ITM.Dashboard.Web.Client.Shared
@@ -9,7 +10,7 @@
 
 <MudStack Row="true" AlignItems="AlignItems.Center" Class="mb-2">
     <MudIcon Icon="@Icons.Material.Rounded.Home" Size="Size.Large" />
-    <MudText Typo="Typo.h4">System Dashboard</MudText>
+    <MudText Typo="Typo.h4">ITM Agent Status Dashboard</MudText>
 </MudStack>
 
 <MudPaper Elevation="0" Class="pa-4 mb-4" Style="background-color: transparent;">
@@ -48,7 +49,7 @@ else
                       Class="@GetCardClass("All")" Style="height:160px; cursor:pointer;">
                 <MudIcon Icon="@Icons.Material.Rounded.Devices" Color="Color.Primary" Style="font-size: 48px;" />
                 <MudText Typo="Typo.h6" Class="mt-2">@_summary?.TotalEqpCount</MudText>
-                <MudText Typo="Typo.body2" Class="mud-text-secondary">총 모니터링 장비</MudText>
+                <MudText Typo="Typo.body2" Class="mud-text-secondary">Total Monitoring Agent</MudText>
             </MudPaper>
         </MudItem>
         <MudItem xs="12" sm="6" md="3">
@@ -56,7 +57,7 @@ else
                       Class="@GetCardClass("Online")" Style="height:160px; cursor:pointer;">
                 <MudIcon Icon="@Icons.Material.Rounded.Wifi" Color="Color.Success" Style="font-size: 48px;" />
                 <MudText Typo="Typo.h6" Class="mt-2">@_summary?.OnlineAgentCount</MudText>
-                <MudText Typo="Typo.body2" Class="mud-text-secondary">온라인 에이전트</MudText>
+                <MudText Typo="Typo.body2" Class="mud-text-secondary">Online Agent</MudText>
             </MudPaper>
         </MudItem>
         <MudItem xs="12" sm="6" md="3">
@@ -64,7 +65,7 @@ else
                       Class="@GetCardClass("Offline")" Style="height:160px; cursor:pointer;">
                 <MudIcon Icon="@Icons.Material.Rounded.WifiOff" Color="@((_summary?.TotalEqpCount - _summary?.OnlineAgentCount) > 0 ? Color.Error : Color.Default)" Style="font-size: 48px;" />
                 <MudText Typo="Typo.h6" Color="@((_summary?.TotalEqpCount - _summary?.OnlineAgentCount) > 0 ? Color.Error : Color.Default)" Class="mt-2">@(_summary?.TotalEqpCount - _summary?.OnlineAgentCount)</MudText>
-                <MudText Typo="Typo.body2" Class="mud-text-secondary">오프라인 에이전트</MudText>
+                <MudText Typo="Typo.body2" Class="mud-text-secondary">Offline Agent</MudText>
             </MudPaper>
         </MudItem>
         <MudItem xs="12" sm="6" md="3">
@@ -73,7 +74,7 @@ else
                       Class="@GetCardClass("Alarm")" Style="height:160px; cursor:pointer;">
                 <MudIcon Icon="@Icons.Material.Rounded.ErrorOutline" Color="Color.Warning" Style="font-size: 48px;" />
                 <MudText Typo="Typo.h6" Class="mt-2">@_summary?.TodayErrorCount</MudText>
-                <MudText Typo="Typo.body2" Class="mud-text-secondary">금일 발생 에러</MudText>
+                <MudText Typo="Typo.body2" Class="mud-text-secondary">Today's Alerts</MudText>
             </MudPaper>
         </MudItem>
 
@@ -82,33 +83,33 @@ else
             <MudTable Items="FilteredAgentStatusList" Hover="true" Dense="true" Class="mt-4"
                       OnRowClick="@((TableRowClickEventArgs<AgentStatusDto> args) => ShowChartDialog(args.Item))" Style="cursor:pointer;">
                 <HeaderContent>
-                    <MudTh>연결 상태</MudTh>
-                    <MudTh>장비 상태</MudTh>
+                    <MudTh>Connection</MudTh>
+                    <MudTh>Agent Status</MudTh>
                     <MudTh>EQP ID</MudTh>
                     <MudTh>Type</MudTh>
-                    <MudTh>IP 주소</MudTh>
-                    <MudTh>PC 이름</MudTh>
-                    <MudTh>운영체제(OS)</MudTh>
+                    <MudTh>IP Address</MudTh>
+                    <MudTh>PC Name</MudTh>
+                    <MudTh>Operating System(OS)</MudTh>
                     <MudTh Style="width: 150px;">CPU / Memory</MudTh>
-                    <MudTh>마지막 접속</MudTh>
-                    <MudTh>에이전트 버전</MudTh>
+                    <MudTh>Last Contact</MudTh>
+                    <MudTh>Agent Ver'</MudTh>
                 </HeaderContent>
                 <RowTemplate>
-                    <MudTd DataLabel="연결 상태">
+                    <MudTd DataLabel="Connection">
                         @if (context.IsOnline)
                         {
-                            <MudChip T="object" Icon="@Icons.Material.Filled.CheckCircle" Color="Color.Success" Size="Size.Small" Variant="Variant.Outlined">온라인</MudChip>
+                            <MudChip T="object" Icon="@Icons.Material.Filled.CheckCircle" Color="Color.Success" Size="Size.Small" Variant="Variant.Outlined">Online</MudChip>
                         }
                         else
                         {
-                            <MudChip T="object" Icon="@Icons.Material.Filled.Error" Color="Color.Error" Size="Size.Small" Variant="Variant.Outlined">오프라인</MudChip>
+                            <MudChip T="object" Icon="@Icons.Material.Filled.Error" Color="Color.Error" Size="Size.Small" Variant="Variant.Outlined">Offline</MudChip>
                         }
                     </MudTd>
-                    <MudTd DataLabel="장비 상태">
+                    <MudTd DataLabel="Agent Status">
                         @if (context.TodayAlarmCount > 0)
                         {
                             <MudStack Row="true" Spacing="1" AlignItems="AlignItems.Center">
-                                <MudChip T="object" Icon="@Icons.Material.Filled.Warning" Color="Color.Warning" Size="Size.Small" Variant="Variant.Outlined">알람</MudChip>
+                                <MudChip T="object" Icon="@Icons.Material.Filled.Warning" Color="Color.Warning" Size="Size.Small" Variant="Variant.Outlined">Alert</MudChip>
                                 <MudText Typo="Typo.caption">(@context.TodayAlarmCount)</MudText>
                             </MudStack>
                         }
@@ -119,9 +120,9 @@ else
                     </MudTd>
                     <MudTd DataLabel="EQP ID">@context.EqpId</MudTd>
                     <MudTd DataLabel="Type">@context.Type</MudTd>
-                    <MudTd DataLabel="IP 주소">@context.IpAddress</MudTd>
-                    <MudTd DataLabel="PC 이름">@context.PcName</MudTd>
-                    <MudTd DataLabel="운영체제(OS)">@FormatOperatingSystem(context.Os, context.SystemType)</MudTd>
+                    <MudTd DataLabel="IP Address">@context.IpAddress</MudTd>
+                    <MudTd DataLabel="PC Name">@context.PcName</MudTd>
+                    <MudTd DataLabel="Operating System(OS)">@FormatOperatingSystem(context.Os, context.SystemType)</MudTd>
                     <MudTd DataLabel="CPU/Memory">
                         <MudPaper Elevation="0" Class="d-flex align-center rounded pa-1 my-1"
                                   Style="background: var(--mud-palette-background-grey); position: relative;">
@@ -132,8 +133,8 @@ else
                             <MudProgressLinear Color="Color.Info" Value="@context.MemoryUsage" Class="rounded" Style="height:10px;" />
                         </MudPaper>
                     </MudTd>
-                    <MudTd DataLabel="마지막 접속">@context.LastContact?.ToString("yy-MM-dd HH:mm:ss")</MudTd>
-                    <MudTd DataLabel="에이전트 버전">@context.AppVersion</MudTd>
+                    <MudTd DataLabel="Last Contact">@context.LastContact?.ToString("yy-MM-dd HH:mm:ss")</MudTd>
+                    <MudTd DataLabel="Agent Ver'">@context.AppVersion</MudTd>
                 </RowTemplate>
                 <PagerContent>
                     <MudTablePager />
