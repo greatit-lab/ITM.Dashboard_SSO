@@ -43,8 +43,8 @@ public class FiltersController : ControllerBase
         return Ok(results);
     }
 
-    // ▼▼▼ [수정] GetEqpids 메서드를 수정하여 sdwt가 null일 때 전체 EQPID를 반환하도록 합니다. ▼▼▼
-    [HttpGet("eqpids/{sdwt?}")] // sdwt를 선택적 파라미터로 변경
+    // ▼▼▼ [수정] 데이터의 대소문자 및 공백 차이로 인해 JOIN이 실패하는 문제를 해결합니다. ▼▼▼
+    [HttpGet("eqpids/{sdwt?}")]
     public async Task<ActionResult<IEnumerable<string>>> GetEqpids(string sdwt)
     {
         var results = new List<string>();
@@ -52,14 +52,16 @@ public class FiltersController : ControllerBase
         await using var conn = new NpgsqlConnection(dbInfo.GetConnectionString());
         await conn.OpenAsync();
 
+        // [핵심 수정] UPPER()와 TRIM() 함수를 사용하여 데이터 불일치 문제를 해결합니다.
         var sql = new StringBuilder(@"
             SELECT DISTINCT T1.eqpid
             FROM public.ref_equipment AS T1
-            INNER JOIN public.plg_wf_flat AS T2 ON T1.eqpid = T2.eqpid");
+            INNER JOIN public.plg_wf_flat AS T2 
+                ON UPPER(TRIM(T1.eqpid)) = UPPER(TRIM(T2.eqpid))");
 
         if (!string.IsNullOrEmpty(sdwt))
         {
-            sql.Append(" WHERE T1.sdwt = @sdwt");
+            sql.Append(" WHERE UPPER(TRIM(T1.sdwt)) = UPPER(TRIM(@sdwt))");
         }
         sql.Append(" ORDER BY T1.eqpid;");
 
@@ -70,7 +72,10 @@ public class FiltersController : ControllerBase
         }
 
         await using var reader = await cmd.ExecuteReaderAsync();
-        while (await reader.ReadAsync()) { results.Add(reader.GetString(0)); }
+        while (await reader.ReadAsync())
+        {
+            results.Add(reader.GetString(0));
+        }
         return Ok(results);
     }
 
