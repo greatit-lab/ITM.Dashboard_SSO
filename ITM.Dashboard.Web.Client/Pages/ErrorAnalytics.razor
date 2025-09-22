@@ -1,14 +1,15 @@
 @* // ITM.Dashboard.Web.Client/Pages/ErrorAnalytics.razor *@
+
 @page "/error-analytics"
 @using ITM.Dashboard.Web.Client.Models
 @using ITM.Dashboard.Web.Client.Shared
 @inject IHttpClientFactory HttpClientFactory
 
-<PageTitle>Error Analytics</PageTitle>
+<PageTitle>Alert History</PageTitle>
 
 <MudStack Row="true" AlignItems="AlignItems.Center" Class="mb-2">
     <MudIcon Icon="@Icons.Material.Rounded.Warning" Size="Size.Large" />
-    <MudText Typo="Typo.h4">Error Analytics</MudText>
+    <MudText Typo="Typo.h4">Alert History</MudText>
 </MudStack>
 
 <MudPaper Class="pa-4 mb-4">
@@ -22,7 +23,7 @@
             </MudSelect>
         </MudItem>
         <MudItem xs="12" sm="6" md="2">
-            <MudSelect T="string" Label="SDWT (전체)" Value="_selectedSdwt" ValueChanged="OnSdwtChanged" Disabled="@(string.IsNullOrEmpty(_selectedSite))" Dense="true" Margin="Margin.Dense" Clearable="true">
+            <MudSelect T="string" Label="SDWT (All)" Value="_selectedSdwt" ValueChanged="OnSdwtChanged" Disabled="@(string.IsNullOrEmpty(_selectedSite))" Dense="true" Margin="Margin.Dense" Clearable="true">
                 @foreach (var sdwt in _sdwts)
                 {
                     <MudSelectItem T="string" Value="@sdwt">@sdwt</MudSelectItem>
@@ -30,16 +31,16 @@
             </MudSelect>
         </MudItem>
         <MudItem xs="12" sm="12" md="3">
-            <MudAutocomplete T="string" Label="EQP ID (전체)" @bind-Value="_selectedEqpId" SearchFunc="SearchEqpids"
+            <MudAutocomplete T="string" Label="EQP ID (All)" @bind-Value="_selectedEqpId" SearchFunc="SearchEqpids"
                              ResetValueOnEmptyText="true" CoerceText="false" CoerceValue="false" Dense="true" Margin="Margin.Dense"
                              Disabled="@(string.IsNullOrEmpty(_selectedSite))" />
         </MudItem>
         <MudItem xs="12" sm="6" md="3">
-            <MudDateRangePicker @bind-DateRange="_dateRange" Label="기간 선택" Dense="true" Margin="Margin.Dense" />
+            <MudDateRangePicker @bind-DateRange="_dateRange" Label="Date Range" Dense="true" Margin="Margin.Dense" />
         </MudItem>
         @* ▼▼▼ [수정] 조회/Reset 버튼 레이아웃 변경 ▼▼▼ *@
         <MudItem xs="6" sm="3" md="1">
-            <MudButton Variant="Variant.Filled" Color="Color.Primary" OnClick="OnSearchClicked" Disabled="@(string.IsNullOrEmpty(_selectedSite))" FullWidth="true">조회</MudButton>
+            <MudButton Variant="Variant.Filled" Color="Color.Primary" OnClick="OnSearchClicked" Disabled="@(string.IsNullOrEmpty(_selectedSite))" FullWidth="true">SEARCH</MudButton>
         </MudItem>
         <MudItem xs="6" sm="3" md="1">
             <MudButton Variant="Variant.Outlined" OnClick="ResetFilters" FullWidth="true">Reset</MudButton>
@@ -58,14 +59,14 @@ else if (_isSearched)
     <MudGrid Spacing="3">
         @* KPI Cards *@
         <MudItem xs="12" sm="6" md="3">
-            <MudPaper Class="pa-4" Style="height:100%"><MudText Typo="Typo.subtitle1">Total Error 발생건</MudText><MudText Typo="Typo.h4" Color="Color.Error">@_summary?.TotalErrorCount</MudText></MudPaper>
+            <MudPaper Class="pa-4" Style="height:100%"><MudText Typo="Typo.subtitle1">Total Alerts</MudText><MudText Typo="Typo.h4" Color="Color.Error">@_summary?.TotalErrorCount 건</MudText></MudPaper>
         </MudItem>
         <MudItem xs="12" sm="6" md="3">
-            <MudPaper Class="pa-4" Style="height:100%"><MudText Typo="Typo.subtitle1">Error 발생 장비수</MudText><MudText Typo="Typo.h4">@_summary?.ErrorEqpCount</MudText></MudPaper>
+            <MudPaper Class="pa-4" Style="height:100%"><MudText Typo="Typo.subtitle1">Intool with Alerts</MudText><MudText Typo="Typo.h4">@_summary?.ErrorEqpCount EA</MudText></MudPaper>
         </MudItem>
         <MudItem xs="12" sm="12" md="6">
             <MudPaper Class="pa-4" Style="height:100%">
-                <MudText Typo="Typo.subtitle1">최다 발생 Error</MudText>
+                <MudText Typo="Typo.subtitle1">Top Alert</MudText>
                 <MudText Typo="Typo.h5">
                     @_summary?.TopErrorId
                     @if (!string.IsNullOrEmpty(_summary?.TopErrorLabel))
@@ -80,16 +81,16 @@ else if (_isSearched)
         @* Charts *@
         <MudItem xs="12" md="8">
             <MudPaper Class="pa-4" Style="height:100%">
-                <MudText Typo="Typo.h6" GutterBottom="true">Error 발생 Time Trend</MudText>
-                <AmChart ChartType="XYChart" ChartData="_trendData" ChartConfig="_trendChartConfig" Height="200px" />
+                <MudText Typo="Typo.h6" GutterBottom="true">Alert Trend</MudText>
+                <AmChart ChartType="ErrorTrendColumnChart" ChartData="_trendData" ChartConfig="_trendChartConfig" Height="200px" />
             </MudPaper>
         </MudItem>
         <MudItem xs="12" md="4">
             <MudPaper Class="pa-4" Style="height:100%">
-                <MudText Typo="Typo.h6" GutterBottom="true">장비별 Error 발생 현황</MudText>
+                <MudText Typo="Typo.h6" GutterBottom="true">Alerts by Intool</MudText>
                 @if (_summary?.ErrorCountByEqp?.Any() == true)
                 {
-                    <AmChart ChartType="PieChart" ChartData="_summary.ErrorCountByEqp" ChartConfig="_donutChartConfig" Height="200px" />
+                    <AmChart ChartType="ErrorByEqpPieChart" ChartData="_summary.ErrorCountByEqp" ChartConfig="_donutChartConfig" Height="200px" />
                 }
                 else
                 {
