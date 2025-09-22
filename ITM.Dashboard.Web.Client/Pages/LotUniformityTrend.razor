@@ -1,0 +1,205 @@
+// ITM.Dashboard/ITM.Dashboard.Web.Client/Pages/LotUniformityTrend.razor
+
+@page "/lot-uniformity-trend"
+@using ITM.Dashboard.Web.Client.Models
+@using ITM.Dashboard.Web.Client.Shared
+@inject IHttpClientFactory HttpClientFactory
+
+<PageTitle>Lot Uniformity Trend</PageTitle>
+
+<MudStack Row="true" AlignItems="AlignItems.Center" Class="mb-2">
+    <MudIcon Icon="@Icons.Material.Rounded.StackedLineChart" Size="Size.Large" />
+    <MudText Typo="Typo.h4">Lot Uniformity Trend</MudText>
+</MudStack>
+
+<MudPaper Class="pa-4 mb-4">
+    <MudGrid Spacing="2" Justify="Justify.FlexStart">
+        @* --- 1열 --- *@
+        @* ▼▼▼ [수정] MudSelect가 @foreach를 사용하도록 수정합니다. ▼▼▼ *@
+        <MudItem xs="12" sm="4" md="2">
+            <MudSelect T="string" Label="Site" Value="_selectedSite" ValueChanged="OnSiteChanged" Dense="true" Margin="Margin.Dense">
+                @foreach (var site in _sites)
+                {
+                    <MudSelectItem Value="@site">@site</MudSelectItem>
+                }
+            </MudSelect>
+        </MudItem>
+        <MudItem xs="12" sm="4" md="2">
+            <MudSelect T="string" Label="SDWT" Value="_selectedSdwt" ValueChanged="OnSdwtChanged" Disabled="string.IsNullOrEmpty(_selectedSite)" Dense="true" Margin="Margin.Dense">
+                @foreach (var sdwt in _sdwts)
+                {
+                    <MudSelectItem Value="@sdwt">@sdwt</MudSelectItem>
+                }
+            </MudSelect>
+        </MudItem>
+        <MudItem xs="12" sm="4" md="2"><MudAutocomplete T="string" Label="EQP ID" SearchFunc="SearchEqpIds" Value="_selectedEqpId" ValueChanged="OnEqpidChanged" Disabled="string.IsNullOrEmpty(_selectedSdwt)" Dense="true" Margin="Margin.Dense" MaxItems="null" /></MudItem>
+        <MudItem xs="12" sm="6" md="3"><MudDatePicker Label="Start Date" @bind-Date="_startDate" Dense="true" Margin="Margin.Dense" PickerVariant="PickerVariant.Dialog" /></MudItem>
+        <MudItem xs="12" sm="6" md="3"><MudDatePicker Label="End Date" @bind-Date="_endDate" Dense="true" Margin="Margin.Dense" PickerVariant="PickerVariant.Dialog" /></MudItem>
+
+        @* --- 2열 --- *@
+        <MudItem xs="12" sm="4" md="2"><MudAutocomplete T="string" Label="Lot ID" SearchFunc="SearchLotIds" Value="_selectedLotId" ValueChanged="OnLotIdChanged" Disabled="string.IsNullOrEmpty(_selectedEqpId)" Dense="true" Margin="Margin.Dense" MaxItems="null" /></MudItem>
+        <MudItem xs="12" sm="4" md="2"><MudAutocomplete T="string" Label="Cassette RCP" SearchFunc="SearchCassetteRcps" Value="_selectedCassetteRcp" ValueChanged="OnCassetteRcpChanged" Disabled="string.IsNullOrEmpty(_selectedLotId)" Dense="true" Margin="Margin.Dense" MaxItems="null" /></MudItem>
+        <MudItem xs="12" sm="4" md="2"><MudAutocomplete T="string" Label="Stage Group" SearchFunc="SearchStageGroups" Value="_selectedStageGroup" ValueChanged="OnStageGroupChanged" Disabled="string.IsNullOrEmpty(_selectedCassetteRcp)" Dense="true" Margin="Margin.Dense" MaxItems="null" /></MudItem>
+        <MudItem xs="12" sm="4" md="2"><MudAutocomplete T="string" Label="Film" SearchFunc="SearchFilms" Value="_selectedFilm" ValueChanged="OnFilmChanged" Disabled="string.IsNullOrEmpty(_selectedStageGroup)" Dense="true" Margin="Margin.Dense" MaxItems="null" /></MudItem>
+        <MudItem xs="12" sm="4" md="2">
+            <MudSelect T="string" Label="Y-Axis Metric" Value="_selectedMetric" ValueChanged="OnMetricChanged" Dense="true" Margin="Margin.Dense">
+                @foreach (var metric in _availableMetrics)
+                {
+                    <MudSelectItem Value="@metric">@metric.ToUpper()</MudSelectItem>
+                }
+            </MudSelect>
+        </MudItem>
+        <MudItem xs="6" sm="2" md="1"><MudButton Variant="Variant.Filled" Color="Color.Primary" OnClick="OnSearchClicked" Disabled="string.IsNullOrEmpty(_selectedFilm)" FullWidth="true">Search</MudButton></MudItem>
+        <MudItem xs="6" sm="2" md="1"><MudButton Variant="Variant.Outlined" OnClick="ResetFilters" FullWidth="true">Reset</MudButton></MudItem>
+    </MudGrid>
+</MudPaper>
+
+
+@if (_isLoading)
+{
+    <div class="d-flex justify-center mt-16"><MudProgressCircular Color="Color.Primary" Indeterminate="true" /></div>
+}
+else if (_isSearched)
+{
+    <MudPaper Class="pa-4">
+        @if (_chartData.Any())
+        {
+            <AmChart ChartData="_chartData" ChartConfig="_chartConfig" ChartType="LotUniformityChart" Height="500px" />
+        }
+        else
+        {
+            <div class="d-flex justify-center align-center" style="height:500px;"><MudText>조회된 데이터가 없습니다.</MudText></div>
+        }
+    </MudPaper>
+}
+else
+{
+    <MudAlert Severity="Severity.Info">조회할 필터를 모두 선택 후, 조회 버튼을 클릭하세요.</MudAlert>
+}
+
+@code {
+    private bool _isLoading = false, _isSearched = false;
+    private string _selectedSite, _selectedSdwt, _selectedEqpId, _selectedLotId, _selectedCassetteRcp, _selectedStageGroup, _selectedFilm, _selectedMetric = "t1";
+    private DateTime? _startDate = DateTime.Now.Date.AddDays(-6), _endDate = DateTime.Now.Date;
+
+    private List<string> _sites = new(), _sdwts = new(), _availableEqpIds = new(), _availableLotIds = new(), _availableCassetteRcps = new(), _availableStageGroups = new(), _availableFilms = new();
+    private List<string> _availableMetrics = new() { "t1", "gof", "z", "srvisz", "cu_ht_nocal", "cu_res_nocal" };
+
+    private List<LotUniformityChartData> _chartData = new();
+    private object _chartConfig;
+
+    protected override async Task OnInitializedAsync()
+    {
+        var client = HttpClientFactory.CreateClient("ITM.Dashboard.Api");
+        _sites = await client.GetFromJsonAsync<List<string>>("api/Filters/sites") ?? new();
+    }
+
+    private async Task OnMetricChanged(string newMetric)
+    {
+        _selectedMetric = newMetric;
+        if (_isSearched)
+        {
+            await OnSearchClicked();
+        }
+    }
+
+    private async Task OnSiteChanged(string value) { _selectedSite = value; await ResetAndLoad(1); }
+    private async Task OnSdwtChanged(string value) { _selectedSdwt = value; await ResetAndLoad(2); }
+    private async Task OnEqpidChanged(string value) { _selectedEqpId = value; await ResetAndLoad(3); }
+    private async Task OnLotIdChanged(string value) { _selectedLotId = value; await ResetAndLoad(4); }
+    private async Task OnCassetteRcpChanged(string value) { _selectedCassetteRcp = value; await ResetAndLoad(5); }
+    private async Task OnStageGroupChanged(string value) { _selectedStageGroup = value; await ResetAndLoad(6); }
+    private Task OnFilmChanged(string value) { _selectedFilm = value; StateHasChanged(); return Task.CompletedTask; }
+
+    private async Task ResetAndLoad(int level)
+    {
+        if (level <= 1) { _selectedSdwt = null; _sdwts.Clear(); }
+        if (level <= 2) { _selectedEqpId = null; _availableEqpIds.Clear(); }
+        if (level <= 3) { _selectedLotId = null; _availableLotIds.Clear(); }
+        if (level <= 4) { _selectedCassetteRcp = null; _availableCassetteRcps.Clear(); }
+        if (level <= 5) { _selectedStageGroup = null; _availableStageGroups.Clear(); }
+        if (level <= 6) { _selectedFilm = null; _availableFilms.Clear(); }
+
+        var client = HttpClientFactory.CreateClient("ITM.Dashboard.Api");
+        if (level == 1 && !string.IsNullOrEmpty(_selectedSite)) _sdwts = await client.GetFromJsonAsync<List<string>>($"api/Filters/sdwts/{_selectedSite}") ?? new();
+        if (level == 2 && !string.IsNullOrEmpty(_selectedSdwt)) _availableEqpIds = await client.GetFromJsonAsync<List<string>>($"api/Filters/eqpids/{_selectedSdwt}") ?? new();
+        if (level >= 3 && !string.IsNullOrEmpty(_selectedEqpId))
+        {
+            await UpdateFilterOptions();
+        }
+
+        StateHasChanged();
+    }
+
+    private async Task UpdateFilterOptions()
+    {
+        var query = BuildFilterQueryString();
+        var client = HttpClientFactory.CreateClient("ITM.Dashboard.Api");
+        _availableLotIds = await client.GetFromJsonAsync<List<string>>($"api/Filters/lotids?{query}") ?? new();
+        _availableCassetteRcps = await client.GetFromJsonAsync<List<string>>($"api/Filters/cassettercps?{query}") ?? new();
+        _availableStageGroups = await client.GetFromJsonAsync<List<string>>($"api/Filters/stagegroups?{query}") ?? new();
+        _availableFilms = await client.GetFromJsonAsync<List<string>>($"api/Filters/films?{query}") ?? new();
+    }
+
+    private async Task<IEnumerable<string>> SearchEqpIds(string value, CancellationToken token) { await Task.Yield(); if (string.IsNullOrEmpty(value)) return _availableEqpIds; return _availableEqpIds.Where(x => x.Contains(value, StringComparison.InvariantCultureIgnoreCase)); }
+    private async Task<IEnumerable<string>> SearchLotIds(string value, CancellationToken token) { await Task.Yield(); if (string.IsNullOrEmpty(value)) return _availableLotIds; return _availableLotIds.Where(x => x.Contains(value, StringComparison.InvariantCultureIgnoreCase)); }
+    private async Task<IEnumerable<string>> SearchCassetteRcps(string value, CancellationToken token) { await Task.Yield(); if (string.IsNullOrEmpty(value)) return _availableCassetteRcps; return _availableCassetteRcps.Where(x => x.Contains(value, StringComparison.InvariantCultureIgnoreCase)); }
+    private async Task<IEnumerable<string>> SearchStageGroups(string value, CancellationToken token) { await Task.Yield(); if (string.IsNullOrEmpty(value)) return _availableStageGroups; return _availableStageGroups.Where(x => x.Contains(value, StringComparison.InvariantCultureIgnoreCase)); }
+    private async Task<IEnumerable<string>> SearchFilms(string value, CancellationToken token) { await Task.Yield(); if (string.IsNullOrEmpty(value)) return _availableFilms; return _availableFilms.Where(x => x.Contains(value, StringComparison.InvariantCultureIgnoreCase)); }
+
+    private async Task OnSearchClicked()
+    {
+        _isLoading = true;
+        _isSearched = false;
+        _chartData.Clear();
+        await InvokeAsync(StateHasChanged);
+
+        var client = HttpClientFactory.CreateClient("ITM.Dashboard.Api");
+        try
+        {
+            var query = BuildFilterQueryString(true);
+            var seriesData = await client.GetFromJsonAsync<List<LotUniformitySeriesDto>>($"api/LotUniformity/trend?{query}");
+            _chartData = seriesData?.SelectMany(series => series.DataPoints.Select(dp => new LotUniformityChartData
+            {
+                WaferId = series.WaferId,
+                Point = dp.Point,
+                Value = dp.Value
+            })).ToList() ?? new List<LotUniformityChartData>();
+
+            _chartConfig = new { xTitle = "Point #", yTitle = _selectedMetric.ToUpper() };
+        }
+        catch (Exception ex) { Console.WriteLine($"Error loading chart data: {ex.Message}"); }
+        finally
+        {
+            _isSearched = true;
+            _isLoading = false;
+            await InvokeAsync(StateHasChanged);
+        }
+    }
+
+    private void ResetFilters()
+    {
+        _selectedSite = _selectedSdwt = _selectedEqpId = _selectedLotId = _selectedCassetteRcp = _selectedStageGroup = _selectedFilm = null;
+        _startDate = DateTime.Now.Date.AddDays(-6); _endDate = DateTime.Now.Date;
+        _sdwts.Clear(); _availableEqpIds.Clear(); _availableLotIds.Clear(); _availableCassetteRcps.Clear(); _availableStageGroups.Clear(); _availableFilms.Clear();
+        _isSearched = false; _chartData.Clear();
+        StateHasChanged();
+    }
+
+    private string BuildFilterQueryString(bool forSearch = false)
+    {
+        var query = new System.Text.StringBuilder();
+        query.Append($"eqpid={Uri.EscapeDataString(_selectedEqpId ?? string.Empty)}");
+        query.Append($"&startDate={_startDate:yyyy-MM-dd}");
+        query.Append($"&endDate={_endDate:yyyy-MM-dd}");
+
+        if (!string.IsNullOrEmpty(_selectedLotId)) query.Append($"&lotId={Uri.EscapeDataString(_selectedLotId)}");
+        if (!string.IsNullOrEmpty(_selectedCassetteRcp)) query.Append($"&cassetteRcp={Uri.EscapeDataString(_selectedCassetteRcp)}");
+        if (!string.IsNullOrEmpty(_selectedStageGroup)) query.Append($"&stageGroup={Uri.EscapeDataString(_selectedStageGroup)}");
+        if (!string.IsNullOrEmpty(_selectedFilm)) query.Append($"&film={Uri.EscapeDataString(_selectedFilm)}");
+
+        if (forSearch) query.Append($"&yAxisMetric={Uri.EscapeDataString(_selectedMetric)}");
+
+        return query.ToString();
+    }
+}
