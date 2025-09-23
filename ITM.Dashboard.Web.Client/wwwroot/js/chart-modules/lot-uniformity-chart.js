@@ -7,9 +7,9 @@ window.AmChartMakers.LotUniformityChart = {
             panX: true,
             panY: true,
             wheelX: "panX",
-            wheelY: "zoomY", 
+            wheelY: "zoomY",
             pinchZoomX: true,
-            pinchZoomY: true, 
+            pinchZoomY: true,
             layout: root.horizontalLayout
         }));
 
@@ -100,7 +100,7 @@ window.AmChartMakers.LotUniformityChart = {
             const waferData = data.filter(d => d.waferId === waferId);
             sbSeries.data.setAll(waferData);
         });
-        
+
         const scrollbarY = chart.set("scrollbarY", am5xy.XYChartScrollbar.new(root, {
             orientation: "vertical",
             width: 50
@@ -108,7 +108,7 @@ window.AmChartMakers.LotUniformityChart = {
 
         const sbxAxis_y = scrollbarY.chart.xAxes.push(am5xy.ValueAxis.new(root, { renderer: am5xy.AxisRendererX.new(root, {}) }));
         const sbyAxis_y = scrollbarY.chart.yAxes.push(am5xy.ValueAxis.new(root, { renderer: am5xy.AxisRendererY.new(root, {}) }));
-        
+
         waferIds.forEach(waferId => {
             const sbSeries = scrollbarY.chart.series.push(am5xy.LineSeries.new(root, {
                 xAxis: sbxAxis_y, yAxis: sbyAxis_y, valueYField: "value", valueXField: "point"
