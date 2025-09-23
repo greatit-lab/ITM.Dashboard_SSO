@@ -15,7 +15,6 @@
 <MudPaper Class="pa-4 mb-4">
     <MudGrid Spacing="2" Justify="Justify.FlexStart">
         @* --- 1열 --- *@
-        @* ▼▼▼ [수정] MudSelect가 @foreach를 사용하도록 수정합니다. ▼▼▼ *@
         <MudItem xs="12" sm="4" md="2">
             <MudSelect T="string" Label="Site" Value="_selectedSite" ValueChanged="OnSiteChanged" Dense="true" Margin="Margin.Dense">
                 @foreach (var site in _sites)
@@ -103,7 +102,8 @@ else
         }
     }
 
-    private async Task OnSiteChanged(string value) {
+    private async Task OnSiteChanged(string value)
+    {
         _selectedSite = value;
         _selectedSdwt = null;
         _sdwts.Clear();
@@ -114,50 +114,61 @@ else
         }
         await OnSdwtChanged(null);
     }
-    private async Task OnSdwtChanged(string value) {
+    private async Task OnSdwtChanged(string value)
+    {
         _selectedSdwt = value;
         _selectedEqpId = null; _availableEqpIds.Clear();
-        if (!string.IsNullOrEmpty(_selectedSdwt)) {
+        if (!string.IsNullOrEmpty(_selectedSdwt))
+        {
             var client = HttpClientFactory.CreateClient("ITM.Dashboard.Api");
             _availableEqpIds = await client.GetFromJsonAsync<List<string>>($"api/Filters/eqpids/{_selectedSdwt}") ?? new();
         }
         await OnEqpidChanged(null);
     }
-    private async Task OnEqpidChanged(string value) {
+    private async Task OnEqpidChanged(string value)
+    {
         _selectedEqpId = value;
         _selectedLotId = null; _availableLotIds.Clear();
-        if (!string.IsNullOrEmpty(_selectedEqpId)) {
+        if (!string.IsNullOrEmpty(_selectedEqpId))
+        {
             await UpdateLotIds();
         }
         await OnLotIdChanged(null);
     }
-    private async Task OnLotIdChanged(string value) {
+    private async Task OnLotIdChanged(string value)
+    {
         _selectedLotId = value;
         _selectedCassetteRcp = null; _availableCassetteRcps.Clear();
-        if (!string.IsNullOrEmpty(_selectedLotId)) {
+        if (!string.IsNullOrEmpty(_selectedLotId))
+        {
             await UpdateCassetteRcps();
         }
         await OnCassetteRcpChanged(null);
     }
-    private async Task OnCassetteRcpChanged(string value) {
+    private async Task OnCassetteRcpChanged(string value)
+    {
         _selectedCassetteRcp = value;
         _selectedStageGroup = null; _availableStageGroups.Clear();
-        if (!string.IsNullOrEmpty(_selectedCassetteRcp)) {
+        if (!string.IsNullOrEmpty(_selectedCassetteRcp))
+        {
             await UpdateStageGroups();
         }
         await OnStageGroupChanged(null);
     }
-    private async Task OnStageGroupChanged(string value) {
+    private async Task OnStageGroupChanged(string value)
+    {
         _selectedStageGroup = value;
         _selectedFilm = null; _availableFilms.Clear();
-        if (!string.IsNullOrEmpty(_selectedStageGroup)) {
+        if (!string.IsNullOrEmpty(_selectedStageGroup))
+        {
             await UpdateFilms();
         }
         // ✅ [추가] StageGroup 선택이 완료되면 Metric 목록을 업데이트합니다.
         await UpdateAvailableMetricsAsync();
         StateHasChanged();
     }
-    private async Task OnFilmChanged(string value) {
+    private async Task OnFilmChanged(string value)
+    {
         _selectedFilm = value;
         // ✅ [추가] Film 선택이 변경되어도 Metric 목록을 다시 업데이트합니다.
         await UpdateAvailableMetricsAsync();
@@ -198,48 +209,57 @@ else
         }
     }
 
-    private async Task UpdateLotIds() {
+    private async Task UpdateLotIds()
+    {
         var query = $"eqpid={Uri.EscapeDataString(_selectedEqpId)}&startDate={_startDate:yyyy-MM-dd}&endDate={_endDate:yyyy-MM-dd}";
         var client = HttpClientFactory.CreateClient("ITM.Dashboard.Api");
         _availableLotIds = await client.GetFromJsonAsync<List<string>>($"api/Filters/lotids?{query}") ?? new();
     }
-    private async Task UpdateCassetteRcps() {
+    private async Task UpdateCassetteRcps()
+    {
         var query = $"eqpid={Uri.EscapeDataString(_selectedEqpId)}&startDate={_startDate:yyyy-MM-dd}&endDate={_endDate:yyyy-MM-dd}&lotId={Uri.EscapeDataString(_selectedLotId)}";
         var client = HttpClientFactory.CreateClient("ITM.Dashboard.Api");
         _availableCassetteRcps = await client.GetFromJsonAsync<List<string>>($"api/Filters/cassettercps?{query}") ?? new();
     }
-    private async Task UpdateStageGroups() {
+    private async Task UpdateStageGroups()
+    {
         var query = $"eqpid={Uri.EscapeDataString(_selectedEqpId)}&startDate={_startDate:yyyy-MM-dd}&endDate={_endDate:yyyy-MM-dd}&lotId={Uri.EscapeDataString(_selectedLotId)}&cassetteRcp={Uri.EscapeDataString(_selectedCassetteRcp)}";
         var client = HttpClientFactory.CreateClient("ITM.Dashboard.Api");
         _availableStageGroups = await client.GetFromJsonAsync<List<string>>($"api/Filters/stagegroups?{query}") ?? new();
     }
-    private async Task UpdateFilms() {
+    private async Task UpdateFilms()
+    {
         var query = $"eqpid={Uri.EscapeDataString(_selectedEqpId)}&startDate={_startDate:yyyy-MM-dd}&endDate={_endDate:yyyy-MM-dd}&lotId={Uri.EscapeDataString(_selectedLotId)}&cassetteRcp={Uri.EscapeDataString(_selectedCassetteRcp)}&stageGroup={Uri.EscapeDataString(_selectedStageGroup)}";
         var client = HttpClientFactory.CreateClient("ITM.Dashboard.Api");
         _availableFilms = await client.GetFromJsonAsync<List<string>>($"api/Filters/films?{query}") ?? new();
     }
 
-    private async Task<IEnumerable<string>> SearchEqpIds(string value, CancellationToken token) {
+    private async Task<IEnumerable<string>> SearchEqpIds(string value, CancellationToken token)
+    {
         await Task.Yield();
         if (string.IsNullOrEmpty(value) || value == _selectedEqpId) return _availableEqpIds;
         return _availableEqpIds.Where(x => x.Contains(value, StringComparison.InvariantCultureIgnoreCase));
     }
-    private async Task<IEnumerable<string>> SearchLotIds(string value, CancellationToken token) {
+    private async Task<IEnumerable<string>> SearchLotIds(string value, CancellationToken token)
+    {
         await Task.Yield();
         if (string.IsNullOrEmpty(value) || value == _selectedLotId) return _availableLotIds;
         return _availableLotIds.Where(x => x.Contains(value, StringComparison.InvariantCultureIgnoreCase));
     }
-    private async Task<IEnumerable<string>> SearchCassetteRcps(string value, CancellationToken token) {
+    private async Task<IEnumerable<string>> SearchCassetteRcps(string value, CancellationToken token)
+    {
         await Task.Yield();
         if (string.IsNullOrEmpty(value) || value == _selectedCassetteRcp) return _availableCassetteRcps;
         return _availableCassetteRcps.Where(x => x.Contains(value, StringComparison.InvariantCultureIgnoreCase));
     }
-    private async Task<IEnumerable<string>> SearchStageGroups(string value, CancellationToken token) {
+    private async Task<IEnumerable<string>> SearchStageGroups(string value, CancellationToken token)
+    {
         await Task.Yield();
         if (string.IsNullOrEmpty(value) || value == _selectedStageGroup) return _availableStageGroups;
         return _availableStageGroups.Where(x => x.Contains(value, StringComparison.InvariantCultureIgnoreCase));
     }
-    private async Task<IEnumerable<string>> SearchFilms(string value, CancellationToken token) {
+    private async Task<IEnumerable<string>> SearchFilms(string value, CancellationToken token)
+    {
         await Task.Yield();
         if (string.IsNullOrEmpty(value) || value == _selectedFilm) return _availableFilms;
         return _availableFilms.Where(x => x.Contains(value, StringComparison.InvariantCultureIgnoreCase));
