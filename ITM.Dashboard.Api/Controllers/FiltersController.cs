@@ -7,6 +7,7 @@ using System.Threading.Tasks;
 using ITM.Dashboard.Api.Models;
 using ITM.Dashboard.Api;
 using System.Text;
+using System.Linq;
 
 [Route("api/[controller]")]
 [ApiController]
@@ -122,6 +123,88 @@ public class FiltersController : ControllerBase
             results.Add(reader.GetString(0));
         }
         return Ok(results);
+    }
+
+    [HttpGet("availablemetrics")]
+    public async Task<ActionResult<IEnumerable<string>>> GetAvailableMetrics(
+        [FromQuery] string eqpid, [FromQuery] DateTime? startDate, [FromQuery] DateTime? endDate,
+        [FromQuery] string? lotId, [FromQuery] string? cassetteRcp, [FromQuery] string? stageGroup, [FromQuery] string? film)
+    {
+        var availableMetrics = new List<string>();
+        var dbInfo = DatabaseInfo.CreateDefault();
+        await using var conn = new NpgsqlConnection(dbInfo.GetConnectionString());
+        await conn.OpenAsync();
+
+        // 1. 제외할 컬럼 목록 정의
+        var excludedColumns = new HashSet<string>(StringComparer.OrdinalIgnoreCase)
+        {
+            "eqpid", "lotid", "waferid", "serv_ts", "datetime", "cassettercp",
+            "stagercp", "stagegroup", "film", "site", "sdwt", "point"
+            // 필요에 따라 여기에 더 많은 컬럼 추가 가능
+        };
+
+        // 2. 현재 필터 조건으로 WHERE 절 구성
+        var whereClauses = new List<string>();
+        var parameters = new Dictionary<string, object>();
+
+        void AddCondition(string? value, string columnName)
+        {
+            if (!string.IsNullOrEmpty(value))
+            {
+                whereClauses.Add($"{columnName} = @{columnName}");
+                parameters[columnName] = value;
+            }
+        }
+        AddCondition(eqpid, "eqpid");
+        AddCondition(lotId, "lotid");
+        AddCondition(cassetteRcp, "cassettercp");
+        AddCondition(stageGroup, "stagegroup");
+        AddCondition(film, "film");
+
+        if (startDate.HasValue) { whereClauses.Add("serv_ts >= @startDate"); parameters["startDate"] = startDate.Value; }
+        if (endDate.HasValue) { whereClauses.Add("serv_ts <= @endDate"); parameters["endDate"] = endDate.Value.AddDays(1).AddTicks(-1); }
+
+        string whereQuery = whereClauses.Any() ? "WHERE " + string.Join(" AND ", whereClauses) : "";
+
+        // 3. 테이블의 모든 숫자 타입 컬럼 목록 가져오기
+        var allNumericColumns = new List<string>();
+        var columnSql = @"
+            SELECT column_name
+            FROM information_schema.columns
+            WHERE table_schema = 'public'
+              AND table_name   = 'plg_wf_flat'
+              AND data_type IN ('integer', 'bigint', 'smallint', 'numeric', 'real', 'double precision');";
+
+        await using (var cmd = new NpgsqlCommand(columnSql, conn))
+        await using (var reader = await cmd.ExecuteReaderAsync())
+        {
+            while (await reader.ReadAsync())
+            {
+                allNumericColumns.Add(reader.GetString(0));
+            }
+        }
+
+        // 4. 제외 목록에 없는 컬럼들만 대상으로 유효성 검사
+        var potentialMetrics = allNumericColumns.Where(c => !excludedColumns.Contains(c)).ToList();
+
+        foreach (var metric in potentialMetrics)
+        {
+            // [중요] SQL Injection을 방지하기 위해 컬럼 이름을 직접 쿼리에 넣지 않고 ""로 감쌉니다.
+            var checkSql = $"SELECT 1 FROM public.plg_wf_flat {whereQuery} AND \"{metric}\" IS NOT NULL LIMIT 1;";
+            await using var checkCmd = new NpgsqlCommand(checkSql, conn);
+            foreach (var p in parameters)
+            {
+                checkCmd.Parameters.AddWithValue(p.Key, p.Value);
+            }
+
+            var result = await checkCmd.ExecuteScalarAsync();
+            if (result != null && result != DBNull.Value)
+            {
+                availableMetrics.Add(metric);
+            }
+        }
+
+        return Ok(availableMetrics.OrderBy(m => m));
     }
 
     // ▼▼▼ [수정] 모든 필터 값을 받아 동적으로 쿼리하는 새로운 공용 메서드 ▼▼▼
