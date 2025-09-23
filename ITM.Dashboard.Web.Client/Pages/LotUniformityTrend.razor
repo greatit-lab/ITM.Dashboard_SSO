@@ -1,4 +1,4 @@
-// ITM.Dashboard/ITM.Dashboard.Web.Client/Pages/LotUniformityTrend.razor
+@* ITM.Dashboard/ITM.Dashboard.Web.Client/Pages/LotUniformityTrend.razor *@
 
 @page "/lot-uniformity-trend"
 @using ITM.Dashboard.Web.Client.Models
@@ -49,7 +49,8 @@
                 }
             </MudSelect>
         </MudItem>
-        <MudItem xs="6" sm="2" md="1"><MudButton Variant="Variant.Filled" Color="Color.Primary" OnClick="OnSearchClicked" Disabled="string.IsNullOrEmpty(_selectedFilm)" FullWidth="true">Search</MudButton></MudItem>
+        @* ✅ [수정] 조회 버튼의 Disabled 조건을 _selectedFilm에서 _selectedStageGroup으로 변경합니다. *@
+        <MudItem xs="6" sm="2" md="1"><MudButton Variant="Variant.Filled" Color="Color.Primary" OnClick="OnSearchClicked" Disabled="string.IsNullOrEmpty(_selectedStageGroup)" FullWidth="true">Search</MudButton></MudItem>
         <MudItem xs="6" sm="2" md="1"><MudButton Variant="Variant.Outlined" OnClick="ResetFilters" FullWidth="true">Reset</MudButton></MudItem>
     </MudGrid>
 </MudPaper>
@@ -81,9 +82,8 @@ else
     private bool _isLoading = false, _isSearched = false;
     private string _selectedSite, _selectedSdwt, _selectedEqpId, _selectedLotId, _selectedCassetteRcp, _selectedStageGroup, _selectedFilm, _selectedMetric = "t1";
     private DateTime? _startDate = DateTime.Now.Date.AddDays(-6), _endDate = DateTime.Now.Date;
-
-    private List<string> _sites = new(), _sdwts = new(), _availableEqpIds = new(), _availableLotIds = new(), _availableCassetteRcps = new(), _availableStageGroups = new(), _availableFilms = new();
-    private List<string> _availableMetrics = new() { "t1", "gof", "z", "srvisz", "cu_ht_nocal", "cu_res_nocal" };
+    // ✅ [수정] _availableMetrics를 빈 리스트로 초기화합니다. 고정 목록은 제거합니다.
+    private List<string> _sites = new(), _sdwts = new(), _availableEqpIds = new(), _availableLotIds = new(), _availableCassetteRcps = new(), _availableStageGroups = new(), _availableFilms = new(), _availableMetrics = new();
 
     private List<LotUniformityChartData> _chartData = new();
     private object _chartConfig;
@@ -103,49 +103,147 @@ else
         }
     }
 
-    private async Task OnSiteChanged(string value) { _selectedSite = value; await ResetAndLoad(1); }
-    private async Task OnSdwtChanged(string value) { _selectedSdwt = value; await ResetAndLoad(2); }
-    private async Task OnEqpidChanged(string value) { _selectedEqpId = value; await ResetAndLoad(3); }
-    private async Task OnLotIdChanged(string value) { _selectedLotId = value; await ResetAndLoad(4); }
-    private async Task OnCassetteRcpChanged(string value) { _selectedCassetteRcp = value; await ResetAndLoad(5); }
-    private async Task OnStageGroupChanged(string value) { _selectedStageGroup = value; await ResetAndLoad(6); }
-    private Task OnFilmChanged(string value) { _selectedFilm = value; StateHasChanged(); return Task.CompletedTask; }
-
-    private async Task ResetAndLoad(int level)
-    {
-        if (level <= 1) { _selectedSdwt = null; _sdwts.Clear(); }
-        if (level <= 2) { _selectedEqpId = null; _availableEqpIds.Clear(); }
-        if (level <= 3) { _selectedLotId = null; _availableLotIds.Clear(); }
-        if (level <= 4) { _selectedCassetteRcp = null; _availableCassetteRcps.Clear(); }
-        if (level <= 5) { _selectedStageGroup = null; _availableStageGroups.Clear(); }
-        if (level <= 6) { _selectedFilm = null; _availableFilms.Clear(); }
-
-        var client = HttpClientFactory.CreateClient("ITM.Dashboard.Api");
-        if (level == 1 && !string.IsNullOrEmpty(_selectedSite)) _sdwts = await client.GetFromJsonAsync<List<string>>($"api/Filters/sdwts/{_selectedSite}") ?? new();
-        if (level == 2 && !string.IsNullOrEmpty(_selectedSdwt)) _availableEqpIds = await client.GetFromJsonAsync<List<string>>($"api/Filters/eqpids/{_selectedSdwt}") ?? new();
-        if (level >= 3 && !string.IsNullOrEmpty(_selectedEqpId))
+    private async Task OnSiteChanged(string value) {
+        _selectedSite = value;
+        _selectedSdwt = null;
+        _sdwts.Clear();
+        if (!string.IsNullOrEmpty(_selectedSite))
         {
-            await UpdateFilterOptions();
+            var client = HttpClientFactory.CreateClient("ITM.Dashboard.Api");
+            _sdwts = await client.GetFromJsonAsync<List<string>>($"api/Filters/sdwts/{_selectedSite}") ?? new();
         }
-
+        await OnSdwtChanged(null);
+    }
+    private async Task OnSdwtChanged(string value) {
+        _selectedSdwt = value;
+        _selectedEqpId = null; _availableEqpIds.Clear();
+        if (!string.IsNullOrEmpty(_selectedSdwt)) {
+            var client = HttpClientFactory.CreateClient("ITM.Dashboard.Api");
+            _availableEqpIds = await client.GetFromJsonAsync<List<string>>($"api/Filters/eqpids/{_selectedSdwt}") ?? new();
+        }
+        await OnEqpidChanged(null);
+    }
+    private async Task OnEqpidChanged(string value) {
+        _selectedEqpId = value;
+        _selectedLotId = null; _availableLotIds.Clear();
+        if (!string.IsNullOrEmpty(_selectedEqpId)) {
+            await UpdateLotIds();
+        }
+        await OnLotIdChanged(null);
+    }
+    private async Task OnLotIdChanged(string value) {
+        _selectedLotId = value;
+        _selectedCassetteRcp = null; _availableCassetteRcps.Clear();
+        if (!string.IsNullOrEmpty(_selectedLotId)) {
+            await UpdateCassetteRcps();
+        }
+        await OnCassetteRcpChanged(null);
+    }
+    private async Task OnCassetteRcpChanged(string value) {
+        _selectedCassetteRcp = value;
+        _selectedStageGroup = null; _availableStageGroups.Clear();
+        if (!string.IsNullOrEmpty(_selectedCassetteRcp)) {
+            await UpdateStageGroups();
+        }
+        await OnStageGroupChanged(null);
+    }
+    private async Task OnStageGroupChanged(string value) {
+        _selectedStageGroup = value;
+        _selectedFilm = null; _availableFilms.Clear();
+        if (!string.IsNullOrEmpty(_selectedStageGroup)) {
+            await UpdateFilms();
+        }
+        // ✅ [추가] StageGroup 선택이 완료되면 Metric 목록을 업데이트합니다.
+        await UpdateAvailableMetricsAsync();
+        StateHasChanged();
+    }
+    private async Task OnFilmChanged(string value) {
+        _selectedFilm = value;
+        // ✅ [추가] Film 선택이 변경되어도 Metric 목록을 다시 업데이트합니다.
+        await UpdateAvailableMetricsAsync();
         StateHasChanged();
     }
 
-    private async Task UpdateFilterOptions()
+    // ✅ [추가] Y-Axis Metric 목록을 동적으로 가져오는 새로운 메서드
+    private async Task UpdateAvailableMetricsAsync()
     {
-        var query = BuildFilterQueryString();
+        // StageGroup까지 선택되지 않았으면 Metric 목록을 비웁니다.
+        if (string.IsNullOrEmpty(_selectedStageGroup))
+        {
+            _availableMetrics.Clear();
+            _selectedMetric = "t1"; // 기본값으로 복원
+            return;
+        }
+
+        var query = BuildFilterQueryString(); // Film을 포함한 전체 필터 쿼리 사용
+        var client = HttpClientFactory.CreateClient("ITM.Dashboard.Api");
+        _availableMetrics = await client.GetFromJsonAsync<List<string>>($"api/Filters/availablemetrics?{query}") ?? new();
+
+        // 목록 업데이트 후, 기본 선택값(_selectedMetric)을 유효한 값으로 설정
+        if (_availableMetrics.Any())
+        {
+            if (_availableMetrics.Contains("t1"))
+            {
+                _selectedMetric = "t1";
+            }
+            else
+            {
+                _selectedMetric = _availableMetrics.First();
+            }
+        }
+        else
+        {
+            // 유효한 Metric이 없으면 선택값을 비웁니다.
+            _selectedMetric = null;
+        }
+    }
+
+    private async Task UpdateLotIds() {
+        var query = $"eqpid={Uri.EscapeDataString(_selectedEqpId)}&startDate={_startDate:yyyy-MM-dd}&endDate={_endDate:yyyy-MM-dd}";
         var client = HttpClientFactory.CreateClient("ITM.Dashboard.Api");
         _availableLotIds = await client.GetFromJsonAsync<List<string>>($"api/Filters/lotids?{query}") ?? new();
+    }
+    private async Task UpdateCassetteRcps() {
+        var query = $"eqpid={Uri.EscapeDataString(_selectedEqpId)}&startDate={_startDate:yyyy-MM-dd}&endDate={_endDate:yyyy-MM-dd}&lotId={Uri.EscapeDataString(_selectedLotId)}";
+        var client = HttpClientFactory.CreateClient("ITM.Dashboard.Api");
         _availableCassetteRcps = await client.GetFromJsonAsync<List<string>>($"api/Filters/cassettercps?{query}") ?? new();
+    }
+    private async Task UpdateStageGroups() {
+        var query = $"eqpid={Uri.EscapeDataString(_selectedEqpId)}&startDate={_startDate:yyyy-MM-dd}&endDate={_endDate:yyyy-MM-dd}&lotId={Uri.EscapeDataString(_selectedLotId)}&cassetteRcp={Uri.EscapeDataString(_selectedCassetteRcp)}";
+        var client = HttpClientFactory.CreateClient("ITM.Dashboard.Api");
         _availableStageGroups = await client.GetFromJsonAsync<List<string>>($"api/Filters/stagegroups?{query}") ?? new();
+    }
+    private async Task UpdateFilms() {
+        var query = $"eqpid={Uri.EscapeDataString(_selectedEqpId)}&startDate={_startDate:yyyy-MM-dd}&endDate={_endDate:yyyy-MM-dd}&lotId={Uri.EscapeDataString(_selectedLotId)}&cassetteRcp={Uri.EscapeDataString(_selectedCassetteRcp)}&stageGroup={Uri.EscapeDataString(_selectedStageGroup)}";
+        var client = HttpClientFactory.CreateClient("ITM.Dashboard.Api");
         _availableFilms = await client.GetFromJsonAsync<List<string>>($"api/Filters/films?{query}") ?? new();
     }
 
-    private async Task<IEnumerable<string>> SearchEqpIds(string value, CancellationToken token) { await Task.Yield(); if (string.IsNullOrEmpty(value)) return _availableEqpIds; return _availableEqpIds.Where(x => x.Contains(value, StringComparison.InvariantCultureIgnoreCase)); }
-    private async Task<IEnumerable<string>> SearchLotIds(string value, CancellationToken token) { await Task.Yield(); if (string.IsNullOrEmpty(value)) return _availableLotIds; return _availableLotIds.Where(x => x.Contains(value, StringComparison.InvariantCultureIgnoreCase)); }
-    private async Task<IEnumerable<string>> SearchCassetteRcps(string value, CancellationToken token) { await Task.Yield(); if (string.IsNullOrEmpty(value)) return _availableCassetteRcps; return _availableCassetteRcps.Where(x => x.Contains(value, StringComparison.InvariantCultureIgnoreCase)); }
-    private async Task<IEnumerable<string>> SearchStageGroups(string value, CancellationToken token) { await Task.Yield(); if (string.IsNullOrEmpty(value)) return _availableStageGroups; return _availableStageGroups.Where(x => x.Contains(value, StringComparison.InvariantCultureIgnoreCase)); }
-    private async Task<IEnumerable<string>> SearchFilms(string value, CancellationToken token) { await Task.Yield(); if (string.IsNullOrEmpty(value)) return _availableFilms; return _availableFilms.Where(x => x.Contains(value, StringComparison.InvariantCultureIgnoreCase)); }
+    private async Task<IEnumerable<string>> SearchEqpIds(string value, CancellationToken token) {
+        await Task.Yield();
+        if (string.IsNullOrEmpty(value) || value == _selectedEqpId) return _availableEqpIds;
+        return _availableEqpIds.Where(x => x.Contains(value, StringComparison.InvariantCultureIgnoreCase));
+    }
+    private async Task<IEnumerable<string>> SearchLotIds(string value, CancellationToken token) {
+        await Task.Yield();
+        if (string.IsNullOrEmpty(value) || value == _selectedLotId) return _availableLotIds;
+        return _availableLotIds.Where(x => x.Contains(value, StringComparison.InvariantCultureIgnoreCase));
+    }
+    private async Task<IEnumerable<string>> SearchCassetteRcps(string value, CancellationToken token) {
+        await Task.Yield();
+        if (string.IsNullOrEmpty(value) || value == _selectedCassetteRcp) return _availableCassetteRcps;
+        return _availableCassetteRcps.Where(x => x.Contains(value, StringComparison.InvariantCultureIgnoreCase));
+    }
+    private async Task<IEnumerable<string>> SearchStageGroups(string value, CancellationToken token) {
+        await Task.Yield();
+        if (string.IsNullOrEmpty(value) || value == _selectedStageGroup) return _availableStageGroups;
+        return _availableStageGroups.Where(x => x.Contains(value, StringComparison.InvariantCultureIgnoreCase));
+    }
+    private async Task<IEnumerable<string>> SearchFilms(string value, CancellationToken token) {
+        await Task.Yield();
+        if (string.IsNullOrEmpty(value) || value == _selectedFilm) return _availableFilms;
+        return _availableFilms.Where(x => x.Contains(value, StringComparison.InvariantCultureIgnoreCase));
+    }
 
     private async Task OnSearchClicked()
     {
@@ -164,7 +262,8 @@ else
                 WaferId = series.WaferId,
                 Point = dp.Point,
                 Value = dp.Value
-            })).ToList() ?? new List<LotUniformityChartData>();
+            })).ToList() ??
+            new List<LotUniformityChartData>();
 
             _chartConfig = new { xTitle = "Point #", yTitle = _selectedMetric.ToUpper() };
         }
@@ -177,12 +276,15 @@ else
         }
     }
 
-    private void ResetFilters()
+    private async Task ResetFilters()
     {
         _selectedSite = _selectedSdwt = _selectedEqpId = _selectedLotId = _selectedCassetteRcp = _selectedStageGroup = _selectedFilm = null;
         _startDate = DateTime.Now.Date.AddDays(-6); _endDate = DateTime.Now.Date;
         _sdwts.Clear(); _availableEqpIds.Clear(); _availableLotIds.Clear(); _availableCassetteRcps.Clear(); _availableStageGroups.Clear(); _availableFilms.Clear();
         _isSearched = false; _chartData.Clear();
+
+        var client = HttpClientFactory.CreateClient("ITM.Dashboard.Api");
+        _sites = await client.GetFromJsonAsync<List<string>>("api/Filters/sites") ?? new();
         StateHasChanged();
     }
 
@@ -199,7 +301,6 @@ else
         if (!string.IsNullOrEmpty(_selectedFilm)) query.Append($"&film={Uri.EscapeDataString(_selectedFilm)}");
 
         if (forSearch) query.Append($"&yAxisMetric={Uri.EscapeDataString(_selectedMetric)}");
-
         return query.ToString();
     }
 }
