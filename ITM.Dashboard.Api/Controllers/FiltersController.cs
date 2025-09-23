@@ -138,8 +138,8 @@ public class FiltersController : ControllerBase
         // 1. 제외할 컬럼 목록 정의
         var excludedColumns = new HashSet<string>(StringComparer.OrdinalIgnoreCase)
         {
-            "eqpid", "lotid", "waferid", "serv_ts", "datetime", "cassettercp",
-            "stagercp", "stagegroup", "film", "site", "sdwt", "point"
+            "eqpid", "lotid", "waferid", "cassettercp", "stagercp", "stagegroup", "film", "point", "datetime", "serv_ts",
+            "gof", "x", "y", "x1", "diex", "diey", "dierow", "diecol", "dienum", "diepointtag", "z", "srvisz"
             // 필요에 따라 여기에 더 많은 컬럼 추가 가능
         };
 
