@@ -1,4 +1,5 @@
-// ITM.Dashboard.Api/Controllers/LotUniformityController.cs
+// greatit-lab/itm.dashboard/ITM.Dashboard-ee112ad9c8a673098624c0f281b029396658070e/ITM.Dashboard.Api/Controllers/LotUniformityController.cs
+
 using ITM.Dashboard.Api;
 using ITM.Dashboard.Api.Models;
 using Microsoft.AspNetCore.Mvc;
@@ -13,19 +14,17 @@ using System.Threading.Tasks;
 [ApiController]
 public class LotUniformityController : ControllerBase
 {
-    // yAxisMetric 파라미터에 허용할 컬럼 목록 (SQL Injection 방지)
     private readonly HashSet<string> _allowedMetrics = new(StringComparer.OrdinalIgnoreCase)
     {
-        "t1", "gof", "z", "srvisz", "cu_ht_nocal", "cu_res_nocal" // 필요한 측정 항목 추가
+        "t1", "gof", "z", "srvisz", "cu_ht_nocal", "cu_res_nocal"
     };
 
-    // ▼▼▼ [수정] film 파라미터를 추가하고 SQL 쿼리에 반영합니다. ▼▼▼
     [HttpGet("trend")]
     public async Task<ActionResult<IEnumerable<LotUniformitySeriesDto>>> GetLotUniformityTrend(
         [FromQuery] string lotId,
         [FromQuery] string cassetteRcp,
         [FromQuery] string stageGroup,
-        [FromQuery] string film, // <-- film 파라미터 추가
+        [FromQuery] string? film, // ✅ [수정] film 파라미터를 nullable로 변경
         [FromQuery] string yAxisMetric,
         [FromQuery] string eqpid,
         [FromQuery] DateTime startDate,
@@ -42,15 +41,23 @@ public class LotUniformityController : ControllerBase
         await conn.OpenAsync();
 
         var sqlBuilder = new StringBuilder();
+        // ✅ [수정] WHERE 절에서 film 관련 부분을 제거하고 동적으로 추가하도록 변경
         sqlBuilder.AppendFormat(@"
             SELECT waferid, point, ""{0}""
             FROM public.plg_wf_flat
             WHERE lotid = @lotId
               AND cassettercp = @cassetteRcp
               AND stagegroup = @stageGroup
-              AND film = @film 
               AND eqpid = @eqpid
-              AND serv_ts BETWEEN @startDate AND @endDate
+              AND serv_ts BETWEEN @startDate AND @endDate", yAxisMetric);
+        
+        // ✅ [추가] film 파라미터가 있을 때만 쿼리에 조건을 추가
+        if (!string.IsNullOrEmpty(film))
+        {
+            sqlBuilder.Append(" AND film = @film");
+        }
+
+        sqlBuilder.AppendFormat(@"
               AND point IS NOT NULL AND ""{0}"" IS NOT NULL
             ORDER BY waferid, point;", yAxisMetric);
 
@@ -58,10 +65,16 @@ public class LotUniformityController : ControllerBase
         cmd.Parameters.AddWithValue("lotId", lotId);
         cmd.Parameters.AddWithValue("cassetteRcp", cassetteRcp);
         cmd.Parameters.AddWithValue("stageGroup", stageGroup);
-        cmd.Parameters.AddWithValue("film", film); // <-- film 파라미터 바인딩
         cmd.Parameters.AddWithValue("eqpid", eqpid);
         cmd.Parameters.AddWithValue("startDate", startDate.Date);
         cmd.Parameters.AddWithValue("endDate", endDate.Date.AddDays(1).AddTicks(-1));
+        
+        // ✅ [추가] film 파라미터가 있을 때만 파라미터 바인딩
+        if (!string.IsNullOrEmpty(film))
+        {
+            cmd.Parameters.AddWithValue("film", film);
+        }
+
 
         await using var reader = await cmd.ExecuteReaderAsync();
         while (await reader.ReadAsync())
