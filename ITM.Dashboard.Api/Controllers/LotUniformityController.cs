@@ -1,5 +1,4 @@
-// greatit-lab/itm.dashboard/ITM.Dashboard-ee112ad9c8a673098624c0f281b029396658070e/ITM.Dashboard.Api/Controllers/LotUniformityController.cs
-
+// ITM.Dashboard.Api/Controllers/LotUniformityController.cs
 using ITM.Dashboard.Api;
 using ITM.Dashboard.Api.Models;
 using Microsoft.AspNetCore.Mvc;
@@ -50,7 +49,7 @@ public class LotUniformityController : ControllerBase
               AND stagegroup = @stageGroup
               AND eqpid = @eqpid
               AND serv_ts BETWEEN @startDate AND @endDate", yAxisMetric);
-        
+
         // ✅ [추가] film 파라미터가 있을 때만 쿼리에 조건을 추가
         if (!string.IsNullOrEmpty(film))
         {
@@ -68,7 +67,7 @@ public class LotUniformityController : ControllerBase
         cmd.Parameters.AddWithValue("eqpid", eqpid);
         cmd.Parameters.AddWithValue("startDate", startDate.Date);
         cmd.Parameters.AddWithValue("endDate", endDate.Date.AddDays(1).AddTicks(-1));
-        
+
         // ✅ [추가] film 파라미터가 있을 때만 파라미터 바인딩
         if (!string.IsNullOrEmpty(film))
         {
