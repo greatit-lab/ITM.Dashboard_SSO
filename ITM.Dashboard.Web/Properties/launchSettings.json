@@ -36,6 +36,14 @@
       "environmentVariables": {
         "ASPNETCORE_ENVIRONMENT": "Development"
       }
+    },
+    "ITM.Dashboard.Web (Dev-Kestrel-HTTPS)": {
+      "commandName": "Project",
+      "launchBrowser": true,
+      "applicationUrl": "https://10.000.00.000:8082",
+      "environmentVariables": {
+        "ASPNETCORE_ENVIRONMENT": "Development"
+      }
     }
   }
 }
