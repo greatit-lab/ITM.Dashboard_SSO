@@ -1,0 +1,43 @@
+@* /ITM.Dashboard.Web/Pages/Index.razor *@
+
+@page "/"
+@using Microsoft.AspNetCore.Components.Authorization
+@inject NavigationManager Nav          // ★ 반드시 선언
+
+<h3>ITM Dashboard</h3>
+
+<div class="mt-4">
+    <AuthorizeView>
+        <Authorized>
+            <p>안녕하세요, @context.User.Identity?.Name 님!</p>
+            <button class="btn btn-outline-danger"
+                    @onclick="Logout">
+                Logout
+            </button>
+        </Authorized>
+
+        <NotAuthorized>
+            <!-- ★ 절대 URL + forceLoad 로 전체 새로고침 -->
+            <button class="btn btn-primary"
+                    @onclick="Login">
+                Login
+            </button>
+        </NotAuthorized>
+    </AuthorizeView>
+</div>
+
+@code {
+    private void Login()
+    {
+        // Nav.BaseUri = "https://10.135.77.222:8082/"
+        Console.WriteLine($"BaseUri = {Nav.BaseUri}");
+        var url = $"{Nav.BaseUri}saml/login";
+        Nav.NavigateTo(url, forceLoad: true);   // ← 여기서 전체 새로고침 강제
+    }
+
+    private void Logout()
+    {
+        var url = $"{Nav.BaseUri}saml/logout";
+        Nav.NavigateTo(url, forceLoad: true);
+    }
+}
