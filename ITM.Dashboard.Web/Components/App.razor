@@ -1,4 +1,6 @@
 @* ITM.Dashboard.Web/Components/App.razor *@
+@using Microsoft.AspNetCore.Components.Authorization
+@using ITM.Dashboard.Web.Client.Layout
 
 <!DOCTYPE html>
 <html lang="en">
@@ -24,6 +26,32 @@
 </head>
 
 <body>
+    <CascadingAuthenticationState>
+        <Router AppAssembly="@typeof(Program).Assembly">
+            <Found Context="routeData">
+                <AuthorizeRouteView RouteData="@routeData"
+                                    DefaultLayout="@typeof(MainLayout)">
+                    <NotAuthorized>
+                        <LayoutView Layout="@typeof<MainLayout)">
+                            <p>You are not authorized. <a href="/saml/login">Login</a></p>
+                        </LayoutView>
+                    </NotAuthorized>
+                    <Authorizing>
+                        <LayoutView Layout="@typeof<MainLayout)">
+                            <p>Loadingㆍㆍㆍ</p>
+                        </LayoutView>
+                    </Authorizing>
+                </AuthorizeRouteView>
+            </Found>
+
+            <NotFound>
+                <LayoutView Layout="@typeof<MainLayout)">
+                    <p>Sorry. the page you requested does not exist.</p>
+                </LayoutView>
+            </NotFound>
+        </Router>
+    </CascadingAuthenticationState>
+
     <Routes @rendermode="RenderMode.InteractiveWebAssembly" />
     <script src="_content/MudBlazor/MudBlazor.min.js"></script>
     <script src="_framework/blazor.web.js"></script>
@@ -40,14 +68,11 @@
     @* ▼▼▼ [4/4] 이 스크립트 블록을 여기에 추가해주세요. ▼▼▼ *@
     <script>
         window.formatApexChartTooltip = (chartId) => {
-            var options = {
+            const options = {
                 tooltip: {
                     y: {
                         formatter: function (val) {
-                            if (typeof val === 'number') {
-                                return val.toFixed(2);
-                            }
-                            return val;
+                            return typeof val === 'number' ? val.toFixed(2) : val;
                         }
                     }
                 }
