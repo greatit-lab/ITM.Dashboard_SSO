@@ -1,38 +1,77 @@
-@* // ITM.Dashboard.Web.Client/Layout/MainLayout.razor *@
+@* ITM.Dashboard.Web.Client/Layout/MainLayout.razor *@
 @inherits LayoutComponentBase
 @using ITM.Dashboard.Web.Client.Themes
+@using Microsoft.AspNetCore.Components.Authorization   @* AuthorizeView 사용을 위한 네임스페이스 *@
 
-@* ▼▼▼ [수정] Theme 속성에 최종 ExecutiveTheme 객체를 바인딩합니다. ▼▼▼ *@
-<MudThemeProvider @bind-IsDarkMode="@_isDarkMode" Theme="ExecutiveTheme.ExecITMTheme" />
+<MudThemeProvider @bind-IsDarkMode="@_isDarkMode"
+                  Theme="ExecutiveTheme.ExecITMTheme" />
 <MudDialogProvider />
 <MudSnackbarProvider />
 <MudPopoverProvider />
 
 <MudLayout>
+
+    <!-- ==============================================================
+         헤더 : 로고·앱 이름·사용자 이름·다크모드 토글
+         ============================================================== -->
     <MudAppBar Elevation="1">
-        <MudIconButton Icon="@Icons.Material.Rounded.Menu" Color="Color.Inherit" Edge="Edge.Start" OnClick="@DrawerToggle" />
+        <MudIconButton Icon="@Icons.Material.Rounded.Menu"
+                       Color="Color.Inherit"
+                       Edge="Edge.Start"
+                       OnClick="@DrawerToggle" />
+
         <MudText Typo="Typo.h5" Class="ml-3">ITM Dashboard</MudText>
+
         <MudSpacer />
+
+        <!-- 로그인된 사용자 이름 표시 (AuthorizeView) -->
+        <AuthorizeView>
+            <Authorized Context="authContext">
+                <MudText Typo="Typo.body2" Class="mr-2">
+                    @authContext.User.Identity?.Name
+                </MudText>
+            </Authorized>
+        </AuthorizeView>
+
+
+        <!-- 다크/라이트 모드 토글 -->
         <MudTooltip Text="Toggle Dark/Light Mode">
-            <MudIconButton Icon="@(_isDarkMode? Icons.Material.Rounded.WbSunny : Icons.Material.Rounded.Brightness4)" Color="Color.Inherit" OnClick="@ToggleTheme" />
+            <MudIconButton Icon="@(_isDarkMode
+                                    ? Icons.Material.Rounded.WbSunny
+                                    : Icons.Material.Rounded.Brightness4)"
+                           Color="Color.Inherit"
+                           OnClick="@ToggleTheme" />
         </MudTooltip>
     </MudAppBar>
-    <MudDrawer @bind-Open="_drawerOpen" ClipMode="DrawerClipMode.Always" Elevation="2">
+
+    <!-- ==============================================================
+         사이드 메뉴 (Drawer)
+         ============================================================== -->
+    <MudDrawer @bind-Open="_drawerOpen"
+               ClipMode="DrawerClipMode.Always"
+               Elevation="2">
         <NavMenu />
     </MudDrawer>
-    @* [수정] MainContent에 테마 클래스를 적용합니다. *@
-    <MudMainContent Class="@(_isDarkMode ? "dark-theme-main-content" : "light-theme-main-content")">
+
+    <!-- ==============================================================
+         메인 콘텐츠 (다크 테마 클래스 적용)
+         ============================================================== -->
+    <MudMainContent Class="@(_isDarkMode
+                               ? "dark-theme-main-content"
+                               : "light-theme-main-content")">
         <CascadingValue Value="_isDarkMode" Name="IsDarkMode">
-            <MudContainer MaxWidth="MaxWidth.ExtraExtraLarge" Class="my-4 pt-4">
-                @Body
+            <MudContainer MaxWidth="MaxWidth.ExtraExtraLarge"
+                          Class="my-4 pt-4">
+                @Body   @* 라우터가 매핑한 페이지가 여기 들어갑니다 *@
             </MudContainer>
         </CascadingValue>
     </MudMainContent>
+
 </MudLayout>
 
 @code {
     private bool _drawerOpen = true;
-    private bool _isDarkMode = true; // 기본을 다크 모드로 설정
+    private bool _isDarkMode = true;   // 기본 다크 모드
 
     private void DrawerToggle()
     {
